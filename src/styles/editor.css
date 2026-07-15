@@ -1,0 +1,164 @@
+/* 编辑器内容区（ProseMirror）样式 —— 仿 UEditor 正文排版 */
+
+.ue-content {
+  font-family: "SimSun", "STSong", serif;
+  font-size: 16px;
+  line-height: 1.75;
+  color: #303133;
+  outline: none;
+  word-break: break-word;
+}
+
+.ue-content :where(p) {
+  margin: 0 0 12px;
+}
+
+.ue-content :where(h1) {
+  font-family: "SimHei", "STHeiti", sans-serif;
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1.2em 0 0.6em;
+  line-height: 1.3;
+}
+
+.ue-content :where(h2) {
+  font-family: "SimHei", "STHeiti", sans-serif;
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1.1em 0 0.5em;
+  line-height: 1.35;
+}
+
+.ue-content :where(h3) {
+  font-family: "SimHei", "STHeiti", sans-serif;
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+  line-height: 1.4;
+}
+
+.ue-content :where(h4, h5, h6) {
+  font-family: "SimHei", "STHeiti", sans-serif;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+  line-height: 1.4;
+}
+
+.ue-content :where(h4) { font-size: 1em; }
+.ue-content :where(h5) { font-size: 0.9em; }
+.ue-content :where(h6) { font-size: 0.85em; color: #909399; }
+
+.ue-content :where(blockquote) {
+  margin: 12px 0;
+  padding: 8px 16px;
+  border-left: 4px solid #3b8cff;
+  background: #f5f7fa;
+  color: #606266;
+}
+
+.ue-content :where(pre) {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: #1e1e1e;
+  color: #e6e6e6;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ue-content :where(pre) code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.ue-content :where(code) {
+  background: #f0f2f5;
+  color: #c7254e;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.ue-content :where(ul, ol) {
+  margin: 0 0 12px;
+  padding-left: 28px;
+}
+
+.ue-content :where(li) {
+  margin: 4px 0;
+}
+
+.ue-content :where(li > p) {
+  margin: 0;
+}
+
+.ue-content :where(hr) {
+  border: none;
+  border-top: 1px solid #dcdfe6;
+  margin: 16px 0;
+}
+
+.ue-content :where(a) {
+  color: #1d6fe0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ue-content :where(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.ue-content :where(table) {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.ue-content :where(table td, table th) {
+  border: 1px solid #dcdfe6;
+  padding: 6px 10px;
+  min-width: 80px;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.ue-content :where(table th) {
+  background: #f5f7fa;
+  font-weight: 700;
+  text-align: left;
+}
+
+.ue-content :where(.table-wrapper) {
+  overflow-x: auto;
+}
+
+/* 选中单元格高亮 */
+.ue-content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 140, 255, 0.15);
+  pointer-events: none;
+}
+
+.ue-content :where(td, th) {
+  position: relative;
+}
+
+/* 占位符 */
+.ue-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #c0c4cc;
+  pointer-events: none;
+  height: 0;
+}
