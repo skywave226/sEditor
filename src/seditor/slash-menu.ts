@@ -163,18 +163,23 @@ export class SlashMenu {
 
   private position(): void {
     if (!this.el) return;
-    // 获取选区坐标
-    const coords = this.editor.view.coordsAtPos(this.editor.state.selection.from);
-    this.el.style.left = `${coords.left}px`;
-    this.el.style.top = `${coords.bottom + 4}px`;
+    // 获取选区坐标（jsdom 或极端布局下 coordsAtPos 可能抛错，防御性兜底）
+    try {
+      const coords = this.editor.view.coordsAtPos(this.editor.state.selection.from);
+      this.el.style.left = `${coords.left}px`;
+      this.el.style.top = `${coords.bottom + 4}px`;
+    } catch {
+      // 坐标计算失败时菜单挂在默认位置，不影响命令执行
+    }
   }
 
   private execute(cmd: SlashCommand): void {
-    // 先删除 / 前缀
+    // 先删除 / 前缀（slashPos 已是段落内 / 字符前的位置，从该位置删到光标即可，
+    // 切勿再 -1，否则会跨越段落 opening tag，破坏文档结构）
     if (this.slashPos != null) {
       const sel = this.editor.state.selection.from;
       this.editor.chain()
-        .deleteRange({ from: this.slashPos - 1, to: sel })
+        .deleteRange({ from: this.slashPos, to: sel })
         .run();
     }
     cmd.run(this.editor);

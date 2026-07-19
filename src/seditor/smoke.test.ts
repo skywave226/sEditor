@@ -98,6 +98,48 @@ describe("sEditor smoke", () => {
 });
 
 /**
+ * SlashMenu 回归：execute 删除 / 前缀时不应跨越段落 opening tag
+ * （历史 bug：deleteRange 的 from 多减了 1，跨越段落边界，破坏文档结构）
+ */
+describe("SlashMenu 回归", () => {
+  let host: HTMLElement;
+  let editor: SEditorInstance;
+
+  beforeEach(() => {
+    host = mountHost();
+    editor = create({ target: host, height: 200 });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it("execute 删除 / 前缀后文档结构完整，命令正常执行", async () => {
+    const { SlashMenu } = await import("./slash-menu");
+    const { UIStore } = await import("./store");
+    editor.setHTML("<p>/</p>");
+    const tipTap = editor.getEditor()!;
+    // 光标移到 / 后（pos 2），模拟用户刚输入 /
+    tipTap.chain().focus().setTextSelection(2).run();
+    // 单独实例化一个 SlashMenu 来测试 execute（SEditor 内部的也已实例化，但我们需要访问私有方法）
+    const store = new UIStore();
+    const menu = new SlashMenu(tipTap, store);
+    // 触发一次 onTransaction 让 slashPos 被设置（通过 dispatch 一个空 tr）
+    const tr = tipTap.state.tr;
+    tipTap.view.dispatch(tr);
+    // 直接调用 execute 执行第一个命令（h1）
+    const cmds = (menu as unknown as { filteredCommands: { id: string }[] }).filteredCommands;
+    expect(cmds.length).toBeGreaterThan(0);
+    (menu as unknown as { execute: (cmd: unknown) => void }).execute(cmds[0]);
+    // 验证：/ 已被删除（getText 不含 /），且文档结构完整（段落转为 h1）
+    expect(editor.getText()).toBe("");  // / 被删除，h1 标签内无文本
+    expect(editor.getHTML()).toMatch(/<h1[^>]*><\/h1>/);  // 空的 h1 标签
+    menu.destroy();
+  });
+});
+
+/**
  * 草稿自动保存：draftKey 启用后，卸载前应把内容写入 localStorage
  */
 describe("草稿自动保存", () => {

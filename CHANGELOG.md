@@ -1,5 +1,19 @@
 # 更新说明
 
+## [2.3.1] - 2026-07-19
+
+### 修复
+- **响应式工具栏折叠失效**（v2.3.0 引入）：`.se-toolbar-overflow-hidden` CSS 类未在任何样式表中定义，导致 `relayout()` 给 group 加该类后无视觉效果，响应式折叠功能实际失效。在 `src/index.css` 补充 `.se-toolbar-overflow-hidden { display: none !important; }`。
+- **/ 命令面板破坏文档结构**（v2.3.0 引入）：`SlashMenu.execute` 中 `deleteRange({ from: this.slashPos - 1, to: sel })` 多减了 1。`slashPos = $from.before($from.depth) + 1` 已是段落内 `/` 字符前的位置，再 -1 会跨越段落 opening tag，破坏 ProseMirror 文档结构。改为 `from: this.slashPos`。
+- **「更多」面板点击 dropdown 项崩溃**（v2.3.0 引入）：响应式折叠隐藏含 dropdown 的 group 后，「更多 ⋯」面板遍历 `groupConfigs` 时未跳过 `type === "dropdown"` 的项，导致 `cfg.command` 为 `undefined`，`handleCommand(undefined!)` 调用 `commandRegistry.run(editor, undefined)` 崩溃。增加 dropdown / 缺 command 的过滤。
+- **SlashMenu 定位在 jsdom/极端布局下抛错**（v2.3.0 引入）：`position()` 直接调用 `editor.view.coordsAtPos()`，在 jsdom（无 `getClientRects`）或极端布局下会抛 `target.getClientRects is not a function`，导致整个 SlashMenu 不可用。加 try/catch 兜底，坐标计算失败时菜单保持默认位置，不影响命令执行。
+
+### 测试
+- 新增回归用例：`SlashMenu 回归 > execute 删除 / 前缀后文档结构完整，命令正常执行` —— 直接实例化 SlashMenu，验证 execute 删除 `/` 前缀后文档结构完整（段落转为 h1，无残留 `/`）。
+- `pnpm check` 0 错误；`pnpm test` 21/21 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 456.32 kB / sEditor.esm.js 676.73 kB）。
+
+---
+
 ## [2.3.0] - 2026-07-19
 
 ### 新增

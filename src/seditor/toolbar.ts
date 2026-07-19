@@ -198,11 +198,13 @@ export class Toolbar {
       morePanel.style.minWidth = "200px";
       const inner = h("div", { className: "py-1" });
       // 把所有当前被响应式隐藏的 group 的按钮渲染进来
+      // 注意：dropdown 类型（heading/fontFamily/color 等）的 command 为 undefined，
+      // 且其交互依赖浮层定位，无法在「更多」面板中直接展开，故跳过避免崩溃。
       this.groupEls.forEach((gEl, idx) => {
         if (!gEl.classList.contains("se-toolbar-overflow-hidden")) return;
         const cfgs = this.groupConfigs[idx];
         cfgs.forEach((cfg) => {
-          if (cfg.type === "divider" || !cfg.id) return;
+          if (cfg.type === "divider" || cfg.type === "dropdown" || !cfg.id || !cfg.command) return;
           const item = this.buildMenuItem(cfg.label ?? cfg.id, false, () => {
             this.handleCommand(cfg.command!);
             closeMore();

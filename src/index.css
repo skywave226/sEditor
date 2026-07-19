@@ -28,6 +28,11 @@
   --se-page: #f5f6f7;
 }
 
+/* 响应式工具栏折叠：被隐藏的 group 直接 display:none */
+.se-toolbar-overflow-hidden {
+  display: none !important;
+}
+
 /* 暗色主题：在 .se-dark 范围内覆盖变量 */
 .se-dark {
   --se-border: #3a3d42;
