@@ -1,5 +1,30 @@
 # 更新说明
 
+## [2.3.0] - 2026-07-19
+
+### 新增
+- **导出 PDF/Word/Markdown**：新增 `exporter.ts` 模块，提供三套导出能力：
+  - **Markdown**：内置轻量 HTML → Markdown 转换器（基于 `DOMParser` 递归遍历），覆盖 h1-h6/p/strong/em/del/code/pre/ul/ol/li/blockquote/hr/a/img/table/video/audio 等常见节点，无第三方依赖。
+  - **Word**：生成 `application/msword` MIME 的 `.doc` 文件，内嵌 Microsoft Office 命名空间 HTML，Word/WPS 可直接打开。
+  - **PDF**：新窗口写入打印专用 HTML 并调用 `window.print()`，由用户选择「另存为 PDF」；自动屏蔽弹窗拦截。
+  - 工具栏新增「导出」下拉菜单（Markdown / Word / PDF 三项），通过 `window.dispatchEvent(new CustomEvent("seditor:exec"))` 跨组件分发到 `SEditor.exec()` 路由。
+  - 实例 API：`exportMarkdown(filename?)` / `exportWord(filename?)` / `exportPDF(filename?)`；亦可通过 `exec("__export_md__" | "__export_word__" | "__export_pdf__")` 触发。
+- **/ 命令面板**：新增 `slash-menu.ts` 模块，在段落行首输入 `/` 时弹出命令菜单（标题/正文/列表/引用/代码块/分割线/表格），支持关键词过滤、方向键导航、回车执行、ESC 关闭、点击外部关闭；执行前自动删除 `/` 前缀字符。
+- **暗色主题样式完善**：`src/index.css` 新增 `.se-dark` 范围内的 CSS 变量覆盖（border/divider/bar-bg/hover/active/primary/ink/sub/faint/canvas/page），并对 `bg-white`/`bg-se-bar`/`text-se-*`/`border-se-border` 等 Tailwind 工具类用 `!important` 兜底；暗色模式下代码块、引用、表头分别调整为深色配色。
+- **工具栏运行时可配置显隐**：`Toolbar` 新增 `setItemVisible(id, visible)` / `setGroupVisible(groupIndex, visible)` API，运行时可动态隐藏/显示工具栏项或整组。
+- **响应式工具栏折叠**：`Toolbar` 新增 `setupResponsive()` + `relayout()`，用 `ResizeObserver` 监听工具栏宽度，溢出时从末尾向前给 group 加 `se-toolbar-overflow-hidden` 类，并显示「更多 ⋯」按钮；点击「更多」打开面板，列出所有被响应式隐藏的 group 中的项。
+
+### 变更
+- `SEditorOptions` / `EditorConfig` 已在 2.2.0 引入 `theme` 字段；本版本完善对应样式。
+- `SEditorInstance` 接口新增 `exportMarkdown` / `exportWord` / `exportPDF` / `clearDraft` / `hasRestoredDraft`。
+- `SEditor` 新增 `slashMenu` 成员，并在 `destroy()` 中清理；新增 `seditor:exec` 事件监听，用于工具栏跨组件触发导出伪命令。
+- `Toolbar` 新增 `groupEls` / `groupConfigs` / `moreWrap` / `hiddenItemIds` 成员；构造函数调用 `setupResponsive()`；`build()` 给每个 group 加 `se-toolbar-group` 类并记录到 `groupEls/groupConfigs`，末尾新增「更多 ⋯」按钮（默认 hidden）；`handleCommand` 追加 export 伪命令分支，通过 `window.dispatchEvent` 分发；`buildDropdownPanel` 追加 `kind === "export"` 分支调 `buildExportPanel`；`updateDropdownLabel` 追加 `kind === "export"` 返回 "导出"。
+
+### 测试
+- `pnpm check` 0 错误（strict）；`pnpm test` 20/20 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 456.29 kB / sEditor.esm.js 676.66 kB）。
+
+---
+
 ## [2.2.0] - 2026-07-19
 
 ### 新增

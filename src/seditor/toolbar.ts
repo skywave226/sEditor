@@ -89,6 +89,7 @@ const toolbarGroups: ToolbarItemConfig[][] = [
   [
     { type: "button", id: "findReplace", label: "查找替换 (Ctrl+F)", command: "findReplace", icon: "search" },
   ],
+  [{ type: "dropdown", id: "export", dropdown: "export", label: "导出", width: 80 }],
   [{ type: "button", id: "removeFormat", label: "清除格式 (Ctrl+\\)", command: "removeFormat", icon: "eraser" }],
   [
     { type: "button", id: "sourceToggle", label: "源码", command: "__source__", icon: "code", variant: "toggle" },
@@ -101,6 +102,10 @@ export class Toolbar {
   private editor: Editor;
   private store: UIStore;
   private buttonEls = new Map<string, HTMLButtonElement>();
+  private groupEls: HTMLElement[] = [];
+  private groupConfigs: ToolbarItemConfig[][] = [];
+  private moreWrap: HTMLElement | null = null;
+  private hiddenItemIds = new Set<string>();
   private cleanups: (() => void)[] = [];
   private hidden: boolean;
   private whitelist: Set<string> | null;
@@ -112,6 +117,7 @@ export class Toolbar {
     // null 表示不限制（显示全部）；空数组也视为不限制以避免误清空
     this.whitelist = Array.isArray(items) && items.length > 0 ? new Set(items) : null;
     this.el = this.build();
+    this.setupResponsive();
     this.syncState();
     this.bindEditorEvents();
   }
@@ -142,9 +148,9 @@ export class Toolbar {
       const visibleItems = group.filter((it) => it.id && this.isAllowed(it.id));
       if (visibleItems.length === 0) return;
 
-      const groupEl = h("div", { className: "flex items-center gap-0.5" });
+      const groupEl = h("div", { className: "flex items-center gap-0.5 se-toolbar-group" });
       if (firstGroupRendered) {
-        groupEl.appendChild(h("div", { className: "mx-1 h-6 w-px bg-se-divider" }));
+        groupEl.appendChild(h("div", { className: "mx-1 h-6 w-px bg-se-divider se-toolbar-divider" }));
       }
       firstGroupRendered = true;
 
@@ -159,8 +165,132 @@ export class Toolbar {
         if (item.id) this.buttonEls.set(item.id, btn);
       });
       root.appendChild(groupEl);
+      this.groupEls.push(groupEl);
+      this.groupConfigs.push(visibleItems);
     });
+
+    // 「更多 ⋯」按钮：响应式折叠时显示溢出项
+    const moreWrap = h("div", { className: "relative hidden se-toolbar-more" });
+    const moreBtn = h("button", {
+      type: "button",
+      title: "更多",
+      className: "flex h-8 items-center gap-1 rounded px-2 text-[13px] text-se-ink hover:bg-se-hover",
+    });
+    moreBtn.innerHTML = "更多 " + getIcon("chevronDown");
+    let morePanel: HTMLElement | null = null;
+    let morePanelCleanup: (() => void)[] = [];
+    const closeMore = (): void => {
+      if (morePanel) {
+        morePanel.remove();
+        morePanel = null;
+      }
+      morePanelCleanup.forEach((fn) => fn());
+      morePanelCleanup = [];
+    };
+    moreBtn.addEventListener("click", () => {
+      if (morePanel) {
+        closeMore();
+        return;
+      }
+      morePanel = h("div", {
+        className: "absolute right-0 top-9 z-50 rounded-md border border-se-border bg-white shadow-dropdown",
+      });
+      morePanel.style.minWidth = "200px";
+      const inner = h("div", { className: "py-1" });
+      // 把所有当前被响应式隐藏的 group 的按钮渲染进来
+      this.groupEls.forEach((gEl, idx) => {
+        if (!gEl.classList.contains("se-toolbar-overflow-hidden")) return;
+        const cfgs = this.groupConfigs[idx];
+        cfgs.forEach((cfg) => {
+          if (cfg.type === "divider" || !cfg.id) return;
+          const item = this.buildMenuItem(cfg.label ?? cfg.id, false, () => {
+            this.handleCommand(cfg.command!);
+            closeMore();
+          });
+          inner.appendChild(item);
+        });
+      });
+      morePanel.appendChild(inner);
+      moreWrap.appendChild(morePanel);
+      morePanelCleanup.push(onClickOutside(morePanel, closeMore));
+      morePanelCleanup.push(onEscape(closeMore));
+    });
+    moreWrap.appendChild(moreBtn);
+    root.appendChild(moreWrap);
+    this.moreWrap = moreWrap;
+
     return root;
+  }
+
+  /**
+   * 响应式折叠：监听工具栏宽度，溢出时从末尾向前隐藏 group，并显示「更多」按钮
+   */
+  private setupResponsive(): void {
+    if (this.hidden) return;
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => this.relayout());
+    ro.observe(this.el);
+    this.cleanups.push(() => ro.disconnect());
+  }
+
+  private relayout(): void {
+    if (!this.moreWrap) return;
+    // 暂时显示全部 group，便于测量
+    this.groupEls.forEach((g) => g.classList.remove("se-toolbar-overflow-hidden"));
+    this.moreWrap.classList.add("hidden");
+
+    // 工具栏允许两行：第二行还放不下时才折叠
+    const rootWidth = this.el.clientWidth;
+    // 估算可用宽度（去掉 padding）
+    const available = rootWidth - 16;
+    // 测量所有 group 的总宽度
+    let totalWidth = 0;
+    this.groupEls.forEach((g) => {
+      totalWidth += g.offsetWidth + 2;
+    });
+    // 加上「更多」按钮的预留宽度
+    const moreBtnWidth = 80;
+
+    if (totalWidth <= available) {
+      // 不需要折叠
+      return;
+    }
+
+    // 从末尾向前隐藏，直到能放下或只剩第一个 group
+    let visibleWidth = totalWidth;
+    const hiddenIdx: number[] = [];
+    for (let i = this.groupEls.length - 1; i >= 1; i--) {
+      if (visibleWidth + moreBtnWidth <= available) break;
+      const g = this.groupEls[i];
+      visibleWidth -= g.offsetWidth + 2;
+      g.classList.add("se-toolbar-overflow-hidden");
+      hiddenIdx.push(i);
+    }
+    if (hiddenIdx.length > 0) {
+      this.moreWrap.classList.remove("hidden");
+    }
+  }
+
+  /**
+   * 运行时设置某个工具栏项的可见性
+   * @param id 工具栏项 id（如 "bold" / "image"）
+   * @param visible 是否可见
+   */
+  setItemVisible(id: string, visible: boolean): void {
+    const btn = this.buttonEls.get(id);
+    if (btn) {
+      btn.style.display = visible ? "" : "none";
+    }
+    if (visible) this.hiddenItemIds.delete(id);
+    else this.hiddenItemIds.add(id);
+    this.relayout();
+  }
+
+  /** 隐藏整组工具栏项（按 group 索引） */
+  setGroupVisible(groupIndex: number, visible: boolean): void {
+    const g = this.groupEls[groupIndex];
+    if (g) g.style.display = visible ? "" : "none";
+    this.relayout();
   }
 
   private buildButton(item: ToolbarItemConfig): HTMLButtonElement {
@@ -268,10 +398,30 @@ export class Toolbar {
       }, () => {
         this.editor.chain().focus().unsetHighlight().run();
       });
+    } else if (kind === "export") {
+      this.buildExportPanel(panel, close);
     } else {
       return null;
     }
     return panel;
+  }
+
+  private buildExportPanel(panel: HTMLElement, close: () => void): void {
+    const inner = h("div", { className: "py-1" });
+    const options: { label: string; cmd: string }[] = [
+      { label: "导出 Markdown (.md)", cmd: "__export_md__" },
+      { label: "导出 Word (.doc)", cmd: "__export_word__" },
+      { label: "导出 PDF（打印）", cmd: "__export_pdf__" },
+    ];
+    options.forEach((o) => {
+      const item = this.buildMenuItem(o.label, false, () => {
+        this.handleCommand(o.cmd);
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
+    panel.style.minWidth = "200px";
   }
 
   private buildHeadingPanel(panel: HTMLElement, close: () => void): void {
@@ -424,6 +574,8 @@ export class Toolbar {
       label = m ? m.label : "行距";
     } else if (kind === "color" || kind === "highlight") {
       label = "";
+    } else if (kind === "export") {
+      label = "导出";
     }
     labelEl.textContent = label;
   }
@@ -431,6 +583,10 @@ export class Toolbar {
   private handleCommand(command: string): void {
     if (command === "__source__") return this.store.toggleSource();
     if (command === "__fullscreen__") return this.store.toggleFullscreen();
+    if (command === "__export_md__" || command === "__export_word__" || command === "__export_pdf__") {
+      window.dispatchEvent(new CustomEvent("seditor:exec", { detail: { command } }));
+      return;
+    }
     if (DIALOG_COMMANDS.has(command)) return this.store.openDialog(command);
     commandRegistry.run(this.editor, command);
   }

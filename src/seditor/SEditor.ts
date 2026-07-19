@@ -13,6 +13,8 @@ import { StatusBar } from "./status-bar";
 import { SourceView } from "./source-view";
 import { TableBubble } from "./table-bubble";
 import { LinkBubble } from "./link-bubble";
+import { SlashMenu } from "./slash-menu";
+import { exportMarkdown, exportWord, exportPDF } from "./exporter";
 
 export interface SEditorOptions extends EditorConfig {
   target: HTMLElement | string;
@@ -26,6 +28,7 @@ export class SEditor {
   private contextMenu: ContextMenu;
   private tableBubble: TableBubble;
   private linkBubble: LinkBubble;
+  private slashMenu: SlashMenu;
   private dialogMgr: DialogManager;
   private sourceView: SourceView;
   private root: HTMLElement;
@@ -148,6 +151,18 @@ export class SEditor {
     const onOpenLinkDialog = (): void => this.store.openDialog("link");
     window.addEventListener("seditor:open-link-dialog", onOpenLinkDialog);
     this.cleanups.push(() => window.removeEventListener("seditor:open-link-dialog", onOpenLinkDialog));
+
+    // 工具栏通过事件委托触发导出等伪命令（toolbar 无法直接访问 SEditor 实例）
+    const onExec = (e: Event): void => {
+      const detail = (e as CustomEvent<{ command: string; payload?: unknown }>).detail;
+      if (!detail) return;
+      this.exec(detail.command, detail.payload);
+    };
+    window.addEventListener("seditor:exec", onExec);
+    this.cleanups.push(() => window.removeEventListener("seditor:exec", onExec));
+
+    // / 命令面板
+    this.slashMenu = new SlashMenu(editor, this.store);
 
     // 对话框管理
     this.dialogMgr = new DialogManager(editor, this.store, options);
@@ -372,8 +387,27 @@ export class SEditor {
     });
   }
 
+  /** 导出为 Markdown 文件 */
+  exportMarkdown(filename?: string): void {
+    exportMarkdown(this.getHTML(), filename);
+  }
+
+  /** 导出为 Word（.doc）文件 */
+  exportWord(filename?: string): void {
+    exportWord(this.getHTML(), filename);
+  }
+
+  /** 导出为 PDF（通过浏览器打印对话框） */
+  exportPDF(filename?: string): void {
+    exportPDF(this.getHTML(), filename);
+  }
+
   exec(command: string, payload?: unknown): void {
     if (!this.editor) return;
+    // 导出伪命令
+    if (command === "__export_md__") return this.exportMarkdown(typeof payload === "string" ? payload : undefined);
+    if (command === "__export_word__") return this.exportWord(typeof payload === "string" ? payload : undefined);
+    if (command === "__export_pdf__") return this.exportPDF(typeof payload === "string" ? payload : undefined);
     // 优先路由到 commandRegistry（覆盖 image/file/table/link 等自定义命令）
     const cmd = commandRegistry.get(command);
     if (cmd) {
@@ -402,6 +436,7 @@ export class SEditor {
     this.contextMenu.destroy();
     this.tableBubble.destroy();
     this.linkBubble.destroy();
+    this.slashMenu.destroy();
     this.dialogMgr.destroy();
     this.sourceView.destroy();
     this.editor?.destroy();

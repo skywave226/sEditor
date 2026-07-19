@@ -28,6 +28,49 @@
   --se-page: #f5f6f7;
 }
 
+/* 暗色主题：在 .se-dark 范围内覆盖变量 */
+.se-dark {
+  --se-border: #3a3d42;
+  --se-divider: #2e3034;
+  --se-bar-bg: #1f2226;
+  --se-hover-bg: #2a2d33;
+  --se-active-bg: #1f3a5c;
+  --se-primary: #4a9eff;
+  --se-primary-text: #6cb2ff;
+  --se-ink: #e6e6e6;
+  --se-sub: #a8abb2;
+  --se-faint: #6f737a;
+  --se-canvas: #1a1c1f;
+  --se-page: #1f2226;
+  background: var(--se-canvas);
+  color: var(--se-ink);
+}
+.se-dark .bg-white { background-color: var(--se-canvas) !important; }
+.se-dark .bg-se-bar { background-color: var(--se-bar-bg) !important; }
+.se-dark .text-se-ink { color: var(--se-ink) !important; }
+.se-dark .text-se-sub { color: var(--se-sub) !important; }
+.se-dark .text-se-faint { color: var(--se-faint) !important; }
+.se-dark .border-se-border { border-color: var(--se-border) !important; }
+.se-dark .bg-se-hover:hover { background-color: var(--se-hover-bg) !important; }
+.se-dark .bg-se-active { background-color: var(--se-active-bg) !important; }
+
+/* 暗色模式下代码块/引用/表格的微调 */
+.se-dark .se-content :where(pre) {
+  background: #0d1117;
+  color: #c9d1d9;
+}
+.se-dark .se-content :where(code) {
+  background: #2a2d33;
+  color: #f47067;
+}
+.se-dark .se-content :where(blockquote) {
+  background: var(--se-page);
+  color: var(--se-sub);
+}
+.se-dark .se-content :where(table th) {
+  background: var(--se-page);
+}
+
 html,
 body,
 #root {
