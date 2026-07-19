@@ -1,0 +1,33 @@
+# npm 凭证（含 token，禁止提交）
+.npmrc
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 依赖
+node_modules
+node_modules/
+.pnpm-store/
+
+# 打包产物
+dist
+dist-ssr
+*.tgz
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
