@@ -89,7 +89,7 @@ export const commandDefinitions: EditorCommand[] = [
   cmd("paragraph", (e) => e.isActive("paragraph"), (e) => e.can().setParagraph(), (e) => e.chain().focus().setParagraph().run()),
   cmd("heading", () => false, (e) => e.can().toggleHeading({ level: 1 }), (e, p) => {
     const level = Number(p);
-    if (level >= 1 && level <= 6) e.chain().focus().toggleHeading({ level: level as 1 }).run();
+    if (level >= 1 && level <= 6) e.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
   }),
   cmd("blockquote", (e) => e.isActive("blockquote"), (e) => e.can().toggleBlockquote(), (e) => e.chain().focus().toggleBlockquote().run()),
   cmd("codeBlock", (e) => e.isActive("codeBlock"), (e) => e.can().toggleCodeBlock(), (e) => e.chain().focus().toggleCodeBlock().run()),
@@ -102,10 +102,11 @@ export const commandDefinitions: EditorCommand[] = [
       e.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
+    // rel 由 Link 扩展的 HTMLAttributes 统一配置，此处不再重复传
     e.chain()
       .focus()
       .extendMarkRange("link")
-      .setLink({ href, target: target ?? "_blank", rel: "noopener noreferrer nofollow" })
+      .setLink({ href, target: target ?? "_blank" })
       .run();
   }),
   cmd("image", () => false, () => true, (e, p) => {

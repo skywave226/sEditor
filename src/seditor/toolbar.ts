@@ -193,7 +193,7 @@ export class Toolbar {
         close();
         return;
       }
-      panel = this.buildDropdownPanel(item, labelSpan, close);
+      panel = this.buildDropdownPanel(item, close);
       if (panel) {
         wrap.appendChild(panel);
         trigger.classList.add("bg-se-hover");
@@ -211,7 +211,6 @@ export class Toolbar {
 
   private buildDropdownPanel(
     item: ToolbarItemConfig,
-    _labelEl: HTMLElement,
     close: () => void,
   ): HTMLElement | null {
     const kind = item.dropdown;
@@ -278,7 +277,7 @@ export class Toolbar {
         ? this.editor.isActive("heading", { level: o.level })
         : this.editor.isActive("paragraph");
       const item = this.buildMenuItem(o.label, active, () => {
-        if (o.level) this.editor.chain().focus().toggleHeading({ level: o.level as 1 }).run();
+        if (o.level) this.editor.chain().focus().toggleHeading({ level: o.level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
         else this.editor.chain().focus().setParagraph().run();
         close();
       });
@@ -322,7 +321,7 @@ export class Toolbar {
       ),
     });
     if (fontFamily) {
-      const lead = h("span", { className: "text-[13px]" }, []);
+      const lead = h("span", { className: "text-[13px]" });
       (lead as HTMLElement).style.fontFamily = fontFamily;
       lead.textContent = "Aa";
       btn.appendChild(lead);

@@ -37,6 +37,8 @@ export function buildExtensions(placeholder?: string): Extensions {
     Link.configure({
       openOnClick: false,
       autolink: true,
+      // 协议白名单：拦截 javascript:、data: 等危险协议，避免存储型 XSS
+      validate: (url) => /^(https?:|mailto:|tel:|\/|#)/i.test(url),
       HTMLAttributes: { rel: "noopener noreferrer nofollow" },
     }),
     // inline: true 使图片作为内联节点存在于段落中，

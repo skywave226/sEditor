@@ -35,9 +35,13 @@ export const Indent = Extension.create<IndentOptions>({
         attributes: {
           indent: {
             default: 0,
+            // 仅识别 em 单位的缩进，避免把粘贴的 padding-left: 32px 误判为 16 级缩进
             parseHTML: (el) => {
-              const pad = parseInt((el as HTMLElement).style.paddingLeft || "0", 10);
-              return Number.isNaN(pad) ? 0 : Math.round(pad / STEP);
+              const pad = (el as HTMLElement).style.paddingLeft;
+              if (!pad) return 0;
+              const m = pad.match(/^([\d.]+)em$/);
+              if (!m) return 0;
+              return Math.round(parseFloat(m[1]) / STEP);
             },
             renderHTML: (attrs) => {
               if (!attrs.indent) return {};
@@ -54,14 +58,17 @@ export const Indent = Extension.create<IndentOptions>({
       indent:
         () =>
         ({ commands, editor }) => {
-          const cur = (editor.getAttributes("paragraph").indent || 0) as number;
+          // 根据光标所在节点类型读取 indent，避免标题中误读段落的 indent
+          const parentType = editor.state.selection.$from.parent.type.name;
+          const cur = (editor.getAttributes(parentType).indent || 0) as number;
           const next = Math.min(cur + 1, Math.round(this.options.max / STEP));
           return this.options.types.every((t) => commands.updateAttributes(t, { indent: next }));
         },
       outdent:
         () =>
         ({ commands, editor }) => {
-          const cur = (editor.getAttributes("paragraph").indent || 0) as number;
+          const parentType = editor.state.selection.$from.parent.type.name;
+          const cur = (editor.getAttributes(parentType).indent || 0) as number;
           const next = Math.max(cur - 1, 0);
           return this.options.types.every((t) => commands.updateAttributes(t, { indent: next }));
         },

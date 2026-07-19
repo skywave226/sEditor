@@ -118,7 +118,7 @@ pnpm add @skywave226/seditor
 
 ```js
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js'; // 若需样式
+import '@skywave226/seditor/dist/sEditor.css'; // 引入样式（ESM 产物未内联 CSS）
 
 const editor = create({
   target: '#editor',
@@ -129,6 +129,8 @@ const editor = create({
 });
 ```
 
+> 说明：`package.json` 通过 `exports` 字段将 `import` 解析到 `dist/sEditor.esm.js`（ESM 产物，供打包器消费），`require`/Node 环境会命中根目录 `index.js` 占位入口（调用 `create` 会抛错以避免 SSR 静默失败）。浏览器 `<script>` 直接引入仍使用 `dist/sEditor.js`（IIFE，CSS 已内联）。
+
 ## 配合前端框架使用
 
 sEditor 本身是原生 JS 实现，挂载点是一个普通 DOM 节点，因此可以在任何框架中通过「拿到 DOM 节点 → 调用 `create()` → 在卸载时调用 `destroy()`」的方式集成。下面给出 React、Vue 3、Angular 三种常见用法。
@@ -138,7 +140,7 @@ sEditor 本身是原生 JS 实现，挂载点是一个普通 DOM 节点，因此
 ```tsx
 import { useEffect, useRef, useState } from 'react';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 export default function Editor() {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -176,7 +178,7 @@ export default function Editor() {
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 const hostRef = ref<HTMLDivElement>();
 let instance: ReturnType<typeof create> | null = null;
@@ -211,7 +213,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 @Component({
   selector: 'app-seditor',

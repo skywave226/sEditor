@@ -34,11 +34,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
           el.dataset[dk] = dv;
         }
       } else if (k === "onClick") {
-        el.addEventListener("click", v as (e: MouseEvent) => void);
+        el.addEventListener("click", v as EventListener);
       } else if (k === "onInput") {
-        el.addEventListener("input", v as (e: Event) => void);
+        el.addEventListener("input", v as EventListener);
       } else if (k === "onChange") {
-        el.addEventListener("change", v as (e: Event) => void);
+        el.addEventListener("change", v as EventListener);
       } else if (k === "title") {
         el.title = v as string;
       } else if (k in el) {
@@ -54,11 +54,16 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-/** 从 HTML 字符串创建元素 */
+/** 从 HTML 字符串创建元素；若解析不到元素节点则返回空 span 兜底 */
 export function fromHTML(html: string): HTMLElement {
   const tpl = document.createElement("template");
   tpl.innerHTML = html.trim();
-  return tpl.content.firstElementChild as HTMLElement;
+  const el = tpl.content.firstElementChild;
+  if (!el) {
+    // 兜底：返回空 span，避免调用方 .appendChild / .addEventListener 触发 NPE
+    return document.createElement("span");
+  }
+  return el as HTMLElement;
 }
 
 /** 绑定外部点击关闭 */

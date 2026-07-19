@@ -72,7 +72,7 @@ yarn add @skywave226/seditor
 
 ```js
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js'; // 引入样式
+import '@skywave226/seditor/dist/sEditor.css'; // 引入样式
 ```
 
 ---
@@ -452,7 +452,7 @@ sEditor 本身是原生 JS 实现，挂载点是一个普通 DOM 节点，因此
 ```tsx
 import { useEffect, useRef, useState } from 'react';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 export default function Editor() {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -492,7 +492,7 @@ export default function Editor() {
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 const hostRef = ref<HTMLDivElement>();
 let instance: ReturnType<typeof create> | null = null;
@@ -527,7 +527,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { create } from '@skywave226/seditor';
-import '@skywave226/seditor/dist/sEditor.js';
+import '@skywave226/seditor/dist/sEditor.css';
 
 @Component({
   selector: 'app-seditor',

@@ -4,7 +4,7 @@ import { ensureCommandsRegistered } from "../editor/commands/definitions";
 import { getPlaceholder, getHeight } from "../editor/runtime-config";
 import type { EditorConfig } from "../editor/types";
 import { cn, h } from "./dom";
-import { UIStore } from "./store";
+import { UIStore, type EditorUIState } from "./store";
 import { Toolbar } from "./toolbar";
 import { DialogManager } from "./dialogs";
 import { ContextMenu } from "./context-menu";
@@ -91,10 +91,12 @@ export class SEditor {
 
     // 右键菜单
     this.contextMenu = new ContextMenu(editor, this.store);
-    this.root.addEventListener("contextmenu", (e) => {
+    const onCtx = (e: MouseEvent) => {
       e.preventDefault();
       this.contextMenu.open(e.clientX, e.clientY);
-    });
+    };
+    this.root.addEventListener("contextmenu", onCtx);
+    this.cleanups.push(() => this.root.removeEventListener("contextmenu", onCtx));
 
     // 对话框管理
     this.dialogMgr = new DialogManager(editor, this.store, options);
@@ -119,7 +121,7 @@ export class SEditor {
     this.onEditorReadyRef?.(editor);
   }
 
-  private onStateChange(state: { isFullscreen: boolean; isSourceMode: boolean; activeDialog: string | null }): void {
+  private onStateChange(state: EditorUIState): void {
     // 全屏切换
     if (state.isFullscreen) {
       this.root.classList.add("fixed", "inset-0", "z-50", "rounded-none", "border-0");
