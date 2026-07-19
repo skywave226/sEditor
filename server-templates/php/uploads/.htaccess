@@ -1,0 +1,28 @@
+# sEditor 上传目录安全策略 — Apache
+# 将此文件放在 uploads/ 目录下，禁止 PHP 解析与脚本执行
+# 仅对 Apache + mod_rewrite 生效；Nginx 请在 server 配置中加规则
+
+# 关闭目录浏览
+Options -Indexes
+
+# 禁止 PHP 解析（mod_php）
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# 强制所有 .php / .phtml / .phar 等以纯文本返回
+RemoveHandler .php .php3 .php4 .php5 .phtml .phar
+AddType text/plain .php .php3 .php4 .php5 .phtml .phar
+
+# 强制所有文件以附件下载，禁止浏览器内嵌渲染（防 SVG/HTML XSS）
+<IfModule mod_headers.c>
+    Header set Content-Disposition "attachment"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Content-Security-Policy "default-src 'none'"
+</IfModule>

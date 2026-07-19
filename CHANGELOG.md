@@ -1,5 +1,51 @@
 # 更新说明
 
+## [2.0.4] - 2026-07-19
+
+### 安全加固（后端模板）
+所有 `server-templates/` 下的上传模板按审计报告统一加固：
+
+- **C1 移除 SVG 出白名单**：SVG 可内嵌 `<script>` 导致存储型 XSS，所有模板不再支持。
+- **C2 增加 magic bytes 文件头校验**：读取文件头字节判断真实类型，防伪造扩展名/MIME。
+- **C3 PHP 防解析**：新增 `uploads/.htaccess`，禁止 PHP 解析与脚本执行。
+- **C4 Python 关闭默认 debug**：`FLASK_DEBUG` 改为环境变量控制，默认 0。
+- **C5 Python 流式校验大小**：先 `Content-Length` 早期拒绝，再流式落盘，避免 OOM。
+
+### 高危修复
+- **H1 CORS 改为白名单**：所有模板新增 `CORS_ORIGIN` 环境变量，默认 `http://localhost:5173`，不再使用 `*`。
+- **H2 Bearer Token 鉴权**：新增 `UPLOAD_TOKEN` 环境变量，留空不鉴权（开发用），配置后强制校验 `Authorization: Bearer <token>`，使用常量时间比较。
+- **H3 速率限制**：所有模板内置基于 IP 的内存限流器，默认 10 次/分钟，可通过 `RATE_LIMIT` 配置。
+- **H4 Java multipart 配置**：`application.yml` 显式配置 `spring.servlet.multipart.max-file-size`，并加 `MaxUploadSizeExceededException` 全局异常处理返回 413。
+- **H5 文件权限**：Java/Go 显式 `setPosixFilePermissions` / `chmod 0640`，仅 owner 可读写。
+- **H6 PHP PUBLIC_BASE 改环境变量**：通过 `getenv('PUBLIC_BASE')` 读取。
+- **H7 Go uploadDir 改环境变量**：通过 `UPLOAD_DIR` 配置。
+
+### 中危修复
+- **M1 安全响应头**：所有模板设置 `X-Content-Type-Options: nosniff` / `X-Frame-Options: DENY` / `Content-Security-Policy: default-src 'none'`。
+- **M2 错误信息脱敏**：详细错误入日志，响应给客户端统一模糊信息。
+- **M3 结构化日志**：JSON 格式记录 IP/文件名/大小/状态，便于审计。
+- **M4 Node.js graceful shutdown**：处理 SIGTERM/SIGINT，等待 in-flight 完成。
+- **M5 Java try-with-resources**：`file.getInputStream()` 显式关闭。
+- **M6 Java 目录创建校验**：`mkdirs()` 失败抛 IOException，并校验 `isDirectory`。
+- **M7 Python secure_filename**：日志中展示前先 sanitize，防日志注入。
+- **M8 Go log.Fatalf 替代 panic**：启动失败用结构化日志。
+
+### 低危修复
+- **L1 Node.js `import.meta.dirname`**：替代手算 `__dirname`。
+- **L4 Go UUID hex 形式**：`hex.EncodeToString(uuid.New()[:])`，32 字符无连字符。
+- **L6 Java 浮点显示文件大小**：`%.1fMB` 避免整数除法误导。
+
+### 新增
+- `server-templates/java-springboot/application.yml`：Spring Boot 配置文件。
+- `server-templates/php/uploads/.htaccess`：Apache 上传目录安全策略。
+- `server-templates/README.md`：部署 checklist、环境变量、安全特性、Nginx 反向代理参考。
+
+### 变更
+- 所有后端模板统一环境变量名：`HOST`/`PORT`/`UPLOAD_DIR`/`PUBLIC_BASE`/`CORS_ORIGIN`/`UPLOAD_TOKEN`/`MAX_SIZE`/`RATE_LIMIT`。
+- 文件落盘策略改为「先写 `tmp_*` 临时文件，校验通过后原子重命名」。
+
+---
+
 ## [2.0.3] - 2026-07-19
 
 ### 新增
