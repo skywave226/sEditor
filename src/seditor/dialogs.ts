@@ -106,27 +106,40 @@ export class DialogManager {
     this.config = config;
   }
 
-  open(name: string): void {
-    this.close();
-    let shell: HTMLElement | null = null;
-    if (name === "link") shell = this.buildLinkDialog();
-    else if (name === "image") shell = this.buildImageDialog();
-    else if (name === "table") shell = this.buildTableDialog();
-    else if (name === "specialChar") shell = this.buildSpecialCharDialog();
-    if (!shell) return;
-    this.current = shell;
-    document.body.appendChild(shell);
-    this.cleanup.push(onEscape(() => this.close()));
-  }
-
-  close(): void {
+  /** 清理当前对话框 DOM 与副作用，但不动 store 状态 */
+  private dispose(): void {
     if (this.current) {
       this.current.remove();
       this.current = null;
     }
     this.cleanup.forEach((fn) => fn());
     this.cleanup = [];
-    this.store.closeDialog();
+  }
+
+  open(name: string): void {
+    this.dispose();
+    let shell: HTMLElement | null = null;
+    if (name === "link") shell = this.buildLinkDialog();
+    else if (name === "image") shell = this.buildImageDialog();
+    else if (name === "table") shell = this.buildTableDialog();
+    else if (name === "specialChar") shell = this.buildSpecialCharDialog();
+    if (!shell) {
+      // 未知对话框名：重置 store 以免状态卡死
+      this.store.closeDialog();
+      return;
+    }
+    this.current = shell;
+    document.body.appendChild(shell);
+    this.cleanup.push(onEscape(() => this.close()));
+  }
+
+  close(): void {
+    const hadDialog = this.current !== null;
+    this.dispose();
+    // 仅在确实关闭了对话框时回写状态，避免 close→closeDialog→close 的回环
+    if (hadDialog) {
+      this.store.closeDialog();
+    }
   }
 
   private buildLinkDialog(): HTMLElement {
@@ -147,7 +160,14 @@ export class DialogManager {
         const url = href.trim();
         if (!url) return;
         if (text && this.editor.state.selection.empty) {
-          this.editor.chain().focus().insertContent(text).run();
+          // 插入文本后选中它，否则 setLink 因选区为空只会设置 storedMarks，
+          // 导致插入的文本并不是超链接
+          const from = this.editor.state.selection.from;
+          this.editor.chain()
+            .focus()
+            .insertContent(text)
+            .setTextSelection({ from, to: from + text.length })
+            .run();
         }
         commandRegistry.run(this.editor, "link", {
           href: url,
@@ -248,7 +268,8 @@ export class DialogManager {
             src = url;
             tab = "url";
             renderBody();
-          } catch {
+          } catch (err) {
+            console.error("[sEditor] 图片上传失败:", err);
             statusEl.textContent = "上传失败，请重试。";
             statusEl.className = "mt-1 text-[12px] text-red-500";
           } finally {

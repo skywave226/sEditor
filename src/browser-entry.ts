@@ -63,6 +63,3 @@ export function createAll(selector = "[data-seditor]"): SEditorInstance[] {
   });
   return list;
 }
-
-// IIFE 打包后挂载为 window.sEditor
-export { create as __create, createAll as __createAll };

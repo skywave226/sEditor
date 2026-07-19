@@ -28,7 +28,12 @@ export class UIStore {
   }
 
   set(partial: Partial<EditorUIState>): void {
-    this.state = { ...this.state, ...partial };
+    const next = { ...this.state, ...partial };
+    // 浅比较：状态未变时不通知，避免监听器回环触发无限递归
+    const keys = Object.keys(next) as (keyof EditorUIState)[];
+    const changed = keys.some((k) => next[k] !== this.state[k]);
+    if (!changed) return;
+    this.state = next;
     this.listeners.forEach((fn) => fn(this.state));
   }
 

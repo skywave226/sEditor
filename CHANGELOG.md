@@ -1,5 +1,43 @@
 # 更新说明
 
+## [2.0.2] - 2026-07-19
+
+### 修复（Critical）
+- **C1 状态机无限递归**：`UIStore.set` 增加浅相等判断；`DialogManager.close` 仅在确有对话框时回写 store，并抽取 `dispose()` 避免回环。修复前点击「链接/图片/表格/特殊字符/源码/全屏」按钮会栈溢出崩溃。
+- **C2 链接文本未设为链接**：链接对话框中填写「链接文本」时，原先 `insertContent` 后选区为空导致 `setLink` 只设置 storedMarks。改为插入后 `setTextSelection` 选中刚插入的文本，再调 `setLink`。
+- **C3 npm 包入口配置错误**：`package.json` 新增 `exports` 字段，`import` 解析到新增的 ESM 产物 `dist/sEditor.esm.js`；`require`/Node 命中根目录 `index.js` 占位入口。同步新增 `index.d.ts` 类型声明。
+- **C4 版本号不一致**：`index.js` 的 `version` 由 `2.0.0` 同步至 `2.0.2`，与 `package.json` 一致。
+
+### 修复（High）
+- **H1 链接协议白名单**：`Link.configure` 新增 `validate`，仅允许 `http(s):/mailto:/tel:/`/相对路径/锚点，拦截 `javascript:`、`data:` 等危险协议。
+- **H2 开启 TypeScript strict**：`tsconfig.json` 启用 `strict: true`，并修复 `dom.ts` 事件处理器类型不匹配问题。
+- **H3 补充冒烟测试**：新增 `vitest` + `jsdom` 测试环境与 `src/seditor/smoke.test.ts`，覆盖 C1/C2/H1 回归与基础 API。
+
+### 修复（Medium）
+- **M1 Indent px/em 混用**：`parseHTML` 改为只识别 `em` 单位，避免把粘贴的 `padding-left: 32px` 误判为 16 级缩进。
+- **M2 Indent 在标题中误读段落属性**：命令改为根据光标所在节点类型 `parentType` 读取 indent。
+- **M3 fromHTML 空值兜底**：解析不到元素节点时返回空 `span`，避免 NPE。
+- **M4 未知对话框名卡死**：`DialogManager.open` 在 shell 为空时主动 `closeDialog()` 重置状态。
+- **M5 contextmenu 监听未移除**：抽取 `onCtx` 并在 `destroy` 中显式 `removeEventListener`。
+
+### 修复（Low）
+- L1：`tsconfig.json` 移除不存在的 `api` 目录。
+- L2：`IndOptions` 拼写更正为 `IndentOptions`。
+- L3：移除 `buildDropdownPanel` 中未使用的 `_labelEl` 参数。
+- L4：`as 1` 强转改为 `as 1 | 2 | 3 | 4 | 5 | 6`（toolbar 与 definitions 两处）。
+- L5：移除 `h("span", ..., [])` 多余空数组参数。
+- L6：图片上传失败时 `console.error` 打印真实错误。
+- L9：`onStateChange` 参数改用 `EditorUIState` 类型。
+- L10：去除 `definitions.ts` 中与 Link 扩展 `HTMLAttributes` 重复的 `rel`。
+- L11：移除 `browser-entry.ts` 中无用的 `__create`/`__createAll` 别名导出。
+
+### 变更
+- `vite.lib.config.ts`：构建产物由单一 IIFE 改为同时输出 IIFE（`sEditor.js`，内联 CSS）与 ESM（`sEditor.esm.js`），并保留独立 `sEditor.css`。
+- `package.json`：`files` 新增 `dist/sEditor.esm.js`、`dist/sEditor.css`、`index.d.ts`、`USAGE.md`；新增 `vitest`/`jsdom` devDependencies；新增 `test`/`test:watch` 脚本。
+- `README.md`/`USAGE.md`：npm 包引入示例的样式路径由 `dist/sEditor.js` 改为 `dist/sEditor.css`。
+
+---
+
 ## [2.0.0] - 2026-07-19
 
 ### 重大变更
