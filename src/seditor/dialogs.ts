@@ -260,17 +260,32 @@ export class DialogManager {
             statusEl.className = "mt-1 text-[12px] text-red-500";
             return;
           }
+          const maxSize = this.config.imageMaxSize ?? 5 * 1024 * 1024;
+          if (file.size > maxSize) {
+            statusEl.textContent = `图片过大，最大支持 ${Math.round(maxSize / 1024 / 1024)}MB。`;
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+            return;
+          }
+          if (!file.type.startsWith("image/")) {
+            statusEl.textContent = "请选择图片文件。";
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+            return;
+          }
           uploading = true;
           statusEl.textContent = "上传中…";
           statusEl.className = "mt-1 text-[12px] text-se-primary";
           try {
             const url = await this.config.imageUpload(file);
+            if (!url || typeof url !== "string") {
+              throw new Error("上传返回值无效");
+            }
             src = url;
             tab = "url";
             renderBody();
           } catch (err) {
             console.error("[sEditor] 图片上传失败:", err);
-            statusEl.textContent = "上传失败，请重试。";
+            const msg = err instanceof Error ? err.message : "未知错误";
+            statusEl.textContent = `上传失败：${msg}。`;
             statusEl.className = "mt-1 text-[12px] text-red-500";
           } finally {
             uploading = false;

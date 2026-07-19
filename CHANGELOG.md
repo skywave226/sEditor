@@ -1,5 +1,23 @@
 # 更新说明
 
+## [2.0.3] - 2026-07-19
+
+### 新增
+- **图片上传接口完善**：前端增加文件类型校验（`image/*`）、文件大小上限校验（默认 5MB，可通过 `imageMaxSize` 配置）、上传失败展示具体错误信息。
+- **多语言后端模板**：`server-templates/` 目录提供 5 种常见后端语言的图片上传接口模板，开箱即用：
+  - Node.js (Express + multer)
+  - Python (Flask)
+  - Java (Spring Boot)
+  - PHP（原生，零依赖）
+  - Go (Gin)
+- **USAGE.md**：补充「7.1 接口协议」「7.2 后端模板」「7.3 示例：接入 Node.js 后端」章节。
+
+### 变更
+- `EditorConfig` 新增 `imageMaxSize` 字段（number，单位字节，默认 5MB）。
+- 图片上传失败时对话框显示后端返回的具体错误文案（`error` 字段）。
+
+---
+
 ## [2.0.2] - 2026-07-19
 
 ### 修复（Critical）

@@ -6,7 +6,10 @@ export interface EditorConfig {
   placeholder?: string;
   height?: number | string;
   toolbar?: string[] | false;
+  /** 自定义图片上传函数，返回图片 URL */
   imageUpload?: (file: File) => Promise<string>;
+  /** 单张图片最大字节数，默认 5MB */
+  imageMaxSize?: number;
   onChange?: (html: string) => void;
   /** 编辑器实例就绪后回调（浏览器打包场景下用于获取 Editor 实例） */
   onEditorReady?: (editor: Editor) => void;

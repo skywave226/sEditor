@@ -25,6 +25,9 @@
   - [5.2 命令清单](#52-命令清单)
 - [六、事件监听](#六事件监听)
 - [七、图片上传自定义](#七图片上传自定义)
+  - [7.1 接口协议](#71-接口协议)
+  - [7.2 后端模板](#72-后端模板)
+  - [7.3 示例：接入 Node.js 后端](#73-示例接入-nodejs-后端)
 - [八、与前端框架集成](#八与前端框架集成)
   - [8.1 React](#81-react)
   - [8.2 Vue 3](#82-vue-3)
@@ -438,8 +441,72 @@ const editor = sEditor.create({
 
 - `imageUpload` 必须返回 `Promise<string>`，resolve 值为图片 URL；
 - 上传成功后对话框自动切回 URL Tab 并填入返回的 URL，用户可继续设置 alt / 宽度 / 对齐；
-- 上传过程中对话框底部会显示「上传中…」；失败时显示「上传失败，请重试」；
+- 上传过程中对话框底部会显示「上传中…」；失败时显示具体错误信息；
 - 上传完成后并不会立即插入，需用户点「确定」按钮才会插入到文档中。
+
+### 7.1 接口协议
+
+后端接口需满足以下约定（所有后端模板均遵循此协议）：
+
+| 项 | 说明 |
+| --- | --- |
+| 请求方法 | `POST` |
+| Content-Type | `multipart/form-data` |
+| 表单字段 | `file`（图片文件） |
+| 成功响应 | `{ "url": "https://your-domain/uploads/xxx.png" }` |
+| 失败响应 | `{ "error": "错误描述" }`，HTTP 状态码 `4xx` / `5xx` |
+
+前端已有校验：
+- 文件类型：仅 `image/*` MIME 类型
+- 文件大小：默认 5MB，可通过 `imageMaxSize` 配置（字节数）
+
+### 7.2 后端模板
+
+项目 `server-templates/` 目录提供了常见后端语言的上传接口模板，开箱即用：
+
+| 语言 / 框架 | 路径 | 依赖 |
+| --- | --- | --- |
+| Node.js (Express) | `server-templates/node-express/upload-server.js` | express、multer、cors |
+| Python (Flask) | `server-templates/python-flask/app.py` | Flask、flask-cors |
+| Java (Spring Boot) | `server-templates/java-springboot/UploadController.java` | spring-boot-starter-web |
+| PHP (原生) | `server-templates/php/upload.php` | 零依赖 |
+| Go (Gin) | `server-templates/go-gin/main.go` | gin、google/uuid |
+
+每个模板均包含：
+- 图片类型白名单（jpg / png / gif / webp / svg）
+- 文件大小限制（默认 5MB）
+- 随机文件名（防路径遍历与覆盖）
+- CORS 跨域支持
+- 静态资源访问
+
+### 7.3 示例：接入 Node.js 后端
+
+```bash
+# 启动后端
+cd server-templates/node-express
+pnpm add express multer cors
+node upload-server.js    # 监听 3000 端口
+```
+
+```js
+const editor = sEditor.create({
+  target: '#editor',
+  imageMaxSize: 10 * 1024 * 1024, // 10MB
+  imageUpload: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('http://localhost:3000/api/upload', {
+      method: 'POST',
+      body: fd,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) {
+      throw new Error(json.error || '上传失败');
+    }
+    return json.url;
+  },
+});
+```
 
 ---
 

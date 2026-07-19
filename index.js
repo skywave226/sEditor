@@ -11,7 +11,7 @@
  * 浏览器/打包器场景会通过 package.json 的 exports 字段命中真正的实现。
  */
 
-export const version = '2.0.2';
+export const version = '2.0.3';
 
 function createNodeEnvError() {
   return new Error(
