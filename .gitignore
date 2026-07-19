@@ -31,3 +31,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Java
+target/
+*.class
+
+# Go
+*.exe
+*.test
+
+# 上传目录（运行时生成）
+server-templates/*/uploads/
+!server-templates/php/uploads/.htaccess
