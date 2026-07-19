@@ -226,13 +226,24 @@ export class Toolbar {
 
   /**
    * 响应式折叠：监听工具栏宽度，溢出时从末尾向前隐藏 group，并显示「更多」按钮
+   * 用 rAF 延迟 relayout，避免同步触发布局变更导致 ResizeObserver loop 警告
    */
   private setupResponsive(): void {
     if (this.hidden) return;
     if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => this.relayout());
+    let rafId = 0;
+    const ro = new ResizeObserver(() => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        this.relayout();
+      });
+    });
     ro.observe(this.el);
-    this.cleanups.push(() => ro.disconnect());
+    this.cleanups.push(() => {
+      if (rafId) cancelAnimationFrame(rafId);
+      ro.disconnect();
+    });
   }
 
   private relayout(): void {
