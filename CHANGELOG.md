@@ -1,5 +1,35 @@
 # 更新说明
 
+## [2.2.0] - 2026-07-19
+
+### 新增
+- **Markdown 快捷输入**：新增 `MarkdownShortcuts` 扩展，补充内联 Markdown 标记（`**bold**`/`__bold__`/`*italic*`/`_italic_`/`~~strike~~`/`` `code` ``），块级 Markdown（`#`/`-`/`>`/`---`/` ``` `）由 StarterKit 提供。
+- **粘贴为纯文本**：工具栏新增「粘贴为纯文本」按钮（`pastePlainText` 命令），仅插入剪贴板的纯文本内容，丢弃所有格式。
+- **拖拽上传**：编辑器拖入图片/文件时，自动调用 `imageUpload` / `fileUpload` 上传并插入；未配置上传函数则交由浏览器默认行为。
+- **粘贴图片上传**：粘贴剪贴板中的图片（如截图）时，自动调用 `imageUpload` 上传并插入到光标处。
+- **视频/音频插入**：新增 `Video` / `Audio` TipTap 扩展（`<video controls>` / `<audio controls>`，atom 不可编辑，draggable 可拖动），工具栏新增「视频」「音频」按钮，对话框支持网络地址与本地上传（复用 `fileUpload`）。
+- **Emoji 表情选择器**：新增 Emoji 对话框，分「表情/手势/动物/食物/物品」5 组常用 Emoji，点击即插入。
+- **查找与替换**：新增「查找与替换」对话框，支持查找下一个 / 替换当前 / 全部替换 / 区分大小写；定位匹配并滚动到选区。`Ctrl+F` / `Cmd+F` 快捷键打开。
+- **自动保存草稿**：新增 `draftKey` / `draftInterval` 配置项，启用后定时将 HTML 内容写入 `localStorage`，下次加载自动恢复；`beforeunload` 同步保存；提供 `clearDraft()` / `hasRestoredDraft()` 实例 API。
+- **字数统计扩展**：状态栏新增「段落」「阅读」显示（阅读时长按 300 字/分钟估算）。
+- **暗色主题基础**：`EditorConfig` 新增 `theme` 字段（`light` / `dark` / `auto`），`auto` 跟随系统 `prefers-color-scheme`；`SEditor` 根节点根据主题切换 `se-dark` 类名。
+- **新增图标**：`pasteText` / `emoji` / `search` / `replace` / `video` / `audio` / `save` / `history`。
+
+### 变更
+- `EditorConfig` 新增 `draftKey` / `draftInterval` / `theme` 字段。
+- `DialogType` 联合类型增加 `"video"` / `"audio"` / `"emoji"` / `"findReplace"`。
+- `WordCount` 新增 `paragraphs` / `readingTime` 字段。
+- `MediaOptions` 新增类型，用于 video/audio 命令。
+- `buildExtensions` 数组追加 `MarkdownShortcuts` / `Video` / `Audio`。
+- `SEditor` 新增 `imageUploadFn` / `fileUploadFn` / `imageMaxSizeBytes` 成员；`editorProps` 新增 `handlePaste` / `handleDrop` 拦截器；构造函数新增草稿恢复逻辑、`Ctrl+F` 快捷键监听、`applyTheme` 调用。
+- `StatusBar` 新增 `parasEl` / `readingEl` 成员。
+- `DIALOG_COMMANDS` 集合追加 `video` / `audio` / `emoji` / `findReplace`。
+
+### 测试
+- `pnpm check` 0 错误（strict）；`pnpm test` 20/20 通过（新增 5 个用例：视频插入、音频插入、Emoji 插入、草稿保存、草稿恢复）；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 444.09 kB / sEditor.esm.js 661.08 kB）。
+
+---
+
 ## [2.1.0] - 2026-07-19
 
 ### 新增

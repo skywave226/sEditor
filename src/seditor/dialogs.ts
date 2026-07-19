@@ -124,6 +124,10 @@ export class DialogManager {
     else if (name === "file") shell = this.buildFileDialog();
     else if (name === "table") shell = this.buildTableDialog();
     else if (name === "specialChar") shell = this.buildSpecialCharDialog();
+    else if (name === "video") shell = this.buildVideoDialog();
+    else if (name === "audio") shell = this.buildAudioDialog();
+    else if (name === "emoji") shell = this.buildEmojiDialog();
+    else if (name === "findReplace") shell = this.buildFindReplaceDialog();
     if (!shell) {
       // 未知对话框名：重置 store 以免状态卡死
       this.store.closeDialog();
@@ -539,5 +543,349 @@ export class DialogManager {
 
   destroy(): void {
     this.close();
+  }
+
+  private buildVideoDialog(): HTMLElement {
+    let src = "";
+    let width = "";
+    let tab: "url" | "upload" = "url";
+    let uploading = false;
+
+    const { shell, body } = buildDialogShell({
+      title: "插入视频",
+      width: 460,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const url = src.trim();
+        if (!url) return;
+        const opts: Record<string, unknown> = { src: url };
+        if (width) opts.width = width;
+        commandRegistry.run(this.editor, "video", opts);
+        this.close();
+      },
+      confirmDisabled: !src.trim(),
+    });
+
+    const renderBody = () => {
+      body.innerHTML = "";
+      if (this.config?.fileUpload) {
+        const tabBar = h("div", { className: "mb-3 flex border-b border-se-border text-[13px]" });
+        (["url", "upload"] as const).forEach((t) => {
+          const tb = h("button", {
+            type: "button",
+            className: cn(
+              "px-3 py-1.5",
+              tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
+            ),
+          });
+          tb.textContent = t === "url" ? "网络视频" : "本地上传";
+          tb.addEventListener("click", () => { tab = t; renderBody(); });
+          tabBar.appendChild(tb);
+        });
+        body.appendChild(tabBar);
+      }
+
+      if (tab === "upload") {
+        const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
+        fileInput.accept = "video/*";
+        const statusEl = h("div", { className: "mt-1 text-[12px]" });
+        fileInput.addEventListener("change", async () => {
+          const files = Array.from(fileInput.files ?? []);
+          if (files.length === 0) return;
+          if (!this.config?.fileUpload) return;
+          uploading = true;
+          statusEl.textContent = "上传中…";
+          statusEl.className = "mt-1 text-[12px] text-se-primary";
+          try {
+            const url = await this.config.fileUpload(files[0]);
+            src = url;
+            tab = "url";
+            uploading = false;
+            renderBody();
+          } catch (err) {
+            console.error("[sEditor] 视频上传失败:", err);
+            const msg = err instanceof Error ? err.message : "未知错误";
+            statusEl.textContent = `上传失败：${msg}`;
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+            uploading = false;
+          }
+        });
+        body.appendChild(buildField("选择视频文件", fileInput));
+        if (uploading) body.appendChild(statusEl);
+      } else {
+        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField("视频地址", urlInput));
+      }
+      const wInput = buildInput({ value: width, placeholder: "如 480 或 100%", onInput: (v) => { width = v; } });
+      body.appendChild(buildField("宽度（px 或 %，可选）", wInput));
+    };
+    renderBody();
+    return shell;
+  }
+
+  private buildAudioDialog(): HTMLElement {
+    let src = "";
+    let tab: "url" | "upload" = "url";
+    let uploading = false;
+
+    const { shell, body } = buildDialogShell({
+      title: "插入音频",
+      width: 440,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const url = src.trim();
+        if (!url) return;
+        commandRegistry.run(this.editor, "audio", { src: url });
+        this.close();
+      },
+      confirmDisabled: !src.trim(),
+    });
+
+    const renderBody = () => {
+      body.innerHTML = "";
+      if (this.config?.fileUpload) {
+        const tabBar = h("div", { className: "mb-3 flex border-b border-se-border text-[13px]" });
+        (["url", "upload"] as const).forEach((t) => {
+          const tb = h("button", {
+            type: "button",
+            className: cn(
+              "px-3 py-1.5",
+              tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
+            ),
+          });
+          tb.textContent = t === "url" ? "网络音频" : "本地上传";
+          tb.addEventListener("click", () => { tab = t; renderBody(); });
+          tabBar.appendChild(tb);
+        });
+        body.appendChild(tabBar);
+      }
+
+      if (tab === "upload") {
+        const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
+        fileInput.accept = "audio/*";
+        const statusEl = h("div", { className: "mt-1 text-[12px]" });
+        fileInput.addEventListener("change", async () => {
+          const files = Array.from(fileInput.files ?? []);
+          if (files.length === 0) return;
+          if (!this.config?.fileUpload) return;
+          uploading = true;
+          statusEl.textContent = "上传中…";
+          statusEl.className = "mt-1 text-[12px] text-se-primary";
+          try {
+            const url = await this.config.fileUpload(files[0]);
+            src = url;
+            tab = "url";
+            uploading = false;
+            renderBody();
+          } catch (err) {
+            console.error("[sEditor] 音频上传失败:", err);
+            const msg = err instanceof Error ? err.message : "未知错误";
+            statusEl.textContent = `上传失败：${msg}`;
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+            uploading = false;
+          }
+        });
+        body.appendChild(buildField("选择音频文件", fileInput));
+        if (uploading) body.appendChild(statusEl);
+      } else {
+        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField("音频地址", urlInput));
+      }
+    };
+    renderBody();
+    return shell;
+  }
+
+  private buildEmojiDialog(): HTMLElement {
+    const groups: { name: string; chars: string[] }[] = [
+      { name: "表情", chars: ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "🙁", "😐", "😶", "😏", "😣", "😥", "😮", "🤐", "😯", "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓", "😔", "😕", "🙃", "🤑", "😲"] },
+      { name: "手势", chars: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤙", "💪", "🙏", "👏", "🙌", "👐", "🤲"] },
+      { name: "动物", chars: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉", "🐺", "🐗", "🐴", "🦄"] },
+      { name: "食物", chars: ["🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥕", "🌽", "🌶️", "🥔", "🍠"] },
+      { name: "物品", chars: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "🔥", "⭐", "🌟", "✨", "⚡", "💥"] },
+    ];
+    let group = 0;
+    const { shell, body } = buildDialogShell({
+      title: "Emoji 表情",
+      width: 420,
+      onClose: () => this.close(),
+    });
+    const render = () => {
+      body.innerHTML = "";
+      const tabBar = h("div", { className: "mb-2 flex flex-wrap gap-1" });
+      groups.forEach((g, i) => {
+        const tb = h("button", {
+          type: "button",
+          className: cn("rounded px-2 py-1 text-[12px]", group === i ? "bg-se-primary text-white" : "text-se-sub hover:bg-se-hover"),
+        });
+        tb.textContent = g.name;
+        tb.addEventListener("click", () => { group = i; render(); });
+        tabBar.appendChild(tb);
+      });
+      body.appendChild(tabBar);
+      const grid = h("div", { className: "grid grid-cols-8 gap-1" });
+      groups[group].chars.forEach((c) => {
+        const btn = h("button", {
+          type: "button",
+          className: "flex h-8 items-center justify-center rounded border border-se-border text-[18px] hover:border-se-primary hover:bg-se-active",
+        });
+        btn.textContent = c;
+        btn.addEventListener("click", () => {
+          commandRegistry.run(this.editor, "specialChar", c);
+        });
+        grid.appendChild(btn);
+      });
+      body.appendChild(grid);
+    };
+    render();
+    return shell;
+  }
+
+  private buildFindReplaceDialog(): HTMLElement {
+    let findText = "";
+    let replaceText = "";
+    let matchCase = false;
+    let currentIndex = -1;
+    const matches: { from: number; to: number }[] = [];
+
+    const { shell, body } = buildDialogShell({
+      title: "查找与替换",
+      width: 440,
+      onClose: () => this.close(),
+    });
+
+    const findInput = buildInput({
+      value: findText,
+      placeholder: "输入要查找的内容",
+      autoFocus: true,
+      onInput: (v) => { findText = v; },
+    });
+    const replaceInput = buildInput({
+      value: replaceText,
+      placeholder: "输入替换为的内容",
+      onInput: (v) => { replaceText = v; },
+    });
+
+    body.appendChild(buildField("查找", findInput));
+    body.appendChild(buildField("替换为", replaceInput));
+
+    const caseChk = fromHTML(`<label class="flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox">区分大小写</label>`);
+    (caseChk.querySelector("input") as HTMLInputElement).addEventListener("change", (e) => {
+      matchCase = (e.target as HTMLInputElement).checked;
+    });
+    body.appendChild(caseChk);
+
+    const statusEl = h("div", { className: "mt-2 text-[12px] text-se-faint" });
+    body.appendChild(statusEl);
+
+    const collectMatches = () => {
+      matches.length = 0;
+      currentIndex = -1;
+      const kw = findText;
+      if (!kw) {
+        statusEl.textContent = "";
+        return;
+      }
+      const doc = this.editor.state.doc;
+      const flags = matchCase ? "g" : "gi";
+      const re = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+      doc.descendants((node, pos) => {
+        if (!node.isText || !node.text) return;
+        let m: RegExpExecArray | null;
+        re.lastIndex = 0;
+        while ((m = re.exec(node.text)) !== null) {
+          const from = pos + m.index;
+          const to = from + m[0].length;
+          matches.push({ from, to });
+          if (m.index === re.lastIndex) re.lastIndex++;
+        }
+      });
+      statusEl.textContent = matches.length > 0 ? `找到 ${matches.length} 处匹配` : "未找到匹配";
+    };
+
+    const highlightMatch = (idx: number) => {
+      if (idx < 0 || idx >= matches.length) return;
+      const m = matches[idx];
+      this.editor.chain().focus().setTextSelection({ from: m.from, to: m.to }).run();
+      // 滚动到选区
+      const view = this.editor.view;
+      view.dispatch(view.state.tr.scrollIntoView());
+      statusEl.textContent = `第 ${idx + 1} / ${matches.length} 处`;
+    };
+
+    const findNext = () => {
+      collectMatches();
+      if (matches.length === 0) return;
+      // 找到第一个在当前选区之后的匹配，否则回到第一个
+      const sel = this.editor.state.selection;
+      let next = matches.findIndex((m) => m.from > sel.to);
+      if (next < 0) next = 0;
+      currentIndex = next;
+      highlightMatch(currentIndex);
+    };
+
+    const replaceCurrent = () => {
+      collectMatches();
+      if (matches.length === 0) return;
+      if (currentIndex < 0) {
+        // 没有当前选中匹配，从第一个开始
+        currentIndex = 0;
+        highlightMatch(0);
+        return;
+      }
+      const m = matches[currentIndex];
+      if (!m) return;
+      const tr = this.editor.state.tr;
+      tr.replaceWith(m.from, m.to, replaceText ? this.editor.state.schema.text(replaceText) : []);
+      this.editor.view.dispatch(tr);
+      // 替换后重新收集并高亮下一个
+      collectMatches();
+      if (matches.length === 0) {
+        currentIndex = -1;
+        statusEl.textContent = "全部替换完成";
+        return;
+      }
+      if (currentIndex >= matches.length) currentIndex = 0;
+      highlightMatch(currentIndex);
+    };
+
+    const replaceAll = () => {
+      collectMatches();
+      if (matches.length === 0) return;
+      // 从后往前替换，避免位置偏移
+      let count = 0;
+      const sorted = [...matches].sort((a, b) => b.from - a.from);
+      sorted.forEach((m) => {
+        const tr = this.editor.state.tr;
+        tr.replaceWith(m.from, m.to, replaceText ? this.editor.state.schema.text(replaceText) : []);
+        this.editor.view.dispatch(tr);
+        count++;
+      });
+      statusEl.textContent = `已替换 ${count} 处`;
+      matches.length = 0;
+      currentIndex = -1;
+    };
+
+    const btnRow = h("div", { className: "mt-3 flex flex-wrap gap-2" });
+    const makeBtn = (label: string, onClick: () => void, primary = false): HTMLButtonElement => {
+      const b = h("button", {
+        type: "button",
+        className: cn(
+          "rounded px-3 py-1.5 text-[13px]",
+          primary
+            ? "bg-se-primary text-white hover:bg-se-primary-text"
+            : "border border-se-border bg-white text-se-ink hover:bg-se-hover",
+        ),
+      });
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      return b;
+    };
+    btnRow.appendChild(makeBtn("查找下一个", findNext));
+    btnRow.appendChild(makeBtn("替换", replaceCurrent));
+    btnRow.appendChild(makeBtn("全部替换", replaceAll, true));
+    body.appendChild(btnRow);
+
+    return shell;
   }
 }

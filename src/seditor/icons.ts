@@ -51,6 +51,14 @@ export const icons: Record<string, string> = {
   x: wrap('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
   baseline: wrap('<path d="M4 20h16"/><path d="M6 16h12"/><path d="M12 4v12"/><path d="M8 8l4-4 4 4"/>'),
   highlighter: wrap('<path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),
+  pasteText: wrap('<path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>'),
+  emoji: wrap('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>'),
+  search: wrap('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+  replace: wrap('<path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 8c0 1.1-.9 2-2 2"/><path d="M18 2c1.1 0 2 .9 2 2"/><path d="M18 4c-1.1 0-2 .9-2 2"/><path d="M14 20c0 1.1.9 2 2 2"/><path d="M20 16c0-1.1-.9-2-2-2"/><path d="M18 22c1.1 0 2-.9 2-2"/><path d="M18 20c-1.1 0-2-.9-2-2"/><path d="M4 8h10"/><path d="M11 5l3 3-3 3"/>'),
+  video: wrap('<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>'),
+  audio: wrap('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
+  save: wrap('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>'),
+  history: wrap('<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>'),
 };
 
 /** 获取图标 SVG 字符串 */

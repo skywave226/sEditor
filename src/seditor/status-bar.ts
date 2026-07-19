@@ -7,7 +7,20 @@ function computeWordCount(editor: Editor): WordCount {
   const chars = text.length;
   const cn = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
   const en = (text.match(/[a-zA-Z0-9]+/g) || []).length;
-  return { chars, words: cn + en };
+  const words = cn + en;
+  // 段落数：顶层 block 节点中 paragraph/heading/blockquote/codeBlock/listItem 等
+  let paragraphs = 0;
+  editor.state.doc.forEach((child) => {
+    if (child.isTextblock) paragraphs++;
+    else if (child.type.name === "bulletList" || child.type.name === "orderedList") {
+      child.forEach((li) => {
+        if (li.isTextblock) paragraphs++;
+      });
+    }
+  });
+  // 阅读时长：中文 300 字/分钟，英文 200 词/分钟，混合取近似值
+  const readingTime = words > 0 ? Math.max(1, Math.ceil(words / 300)) : 0;
+  return { chars, words, paragraphs, readingTime };
 }
 
 function blockLabel(editor: Editor): string[] {
@@ -50,6 +63,8 @@ export class StatusBar {
   private pathEl: HTMLElement;
   private wordsEl: HTMLElement;
   private charsEl: HTMLElement;
+  private parasEl: HTMLElement;
+  private readingEl: HTMLElement;
   private cleanups: (() => void)[] = [];
 
   constructor(editor: Editor) {
@@ -72,8 +87,18 @@ export class StatusBar {
     w2.textContent = "字符 ";
     this.charsEl = h("span", { className: "text-se-sub" });
     w2.appendChild(this.charsEl);
+    const w3 = h("span");
+    w3.textContent = "段落 ";
+    this.parasEl = h("span", { className: "text-se-sub" });
+    w3.appendChild(this.parasEl);
+    const w4 = h("span");
+    w4.textContent = "阅读 ";
+    this.readingEl = h("span", { className: "text-se-sub" });
+    w4.appendChild(this.readingEl);
     right.appendChild(w1);
     right.appendChild(w2);
+    right.appendChild(w3);
+    right.appendChild(w4);
     this.el.appendChild(left);
     this.el.appendChild(right);
 
@@ -93,6 +118,8 @@ export class StatusBar {
     const count = computeWordCount(this.editor);
     this.wordsEl.textContent = String(count.words);
     this.charsEl.textContent = String(count.chars);
+    this.parasEl.textContent = String(count.paragraphs);
+    this.readingEl.textContent = `${count.readingTime} 分钟`;
     const path = blockLabel(this.editor);
     this.pathEl.textContent = path.length ? path.join(" > ") : "—";
   }

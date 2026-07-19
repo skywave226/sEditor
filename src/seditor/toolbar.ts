@@ -11,7 +11,7 @@ import {
 } from "../editor/runtime-config";
 import type { UIStore } from "./store";
 
-const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar"]);
+const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar", "video", "audio", "emoji", "findReplace"]);
 
 /** 归一化字体值用于比较：去引号、去空白、小写 */
 function normalizeFontValue(v: string | undefined | null): string {
@@ -39,6 +39,7 @@ const toolbarGroups: ToolbarItemConfig[][] = [
     { type: "button", id: "copy", label: "复制 (Ctrl+C)", command: "copy", icon: "copy" },
     { type: "button", id: "cut", label: "剪切 (Ctrl+X)", command: "cut", icon: "scissors" },
     { type: "button", id: "paste", label: "粘贴 (Ctrl+V)", command: "paste", icon: "clipboardPaste" },
+    { type: "button", id: "pastePlainText", label: "粘贴为纯文本 (Ctrl+Shift+V)", command: "pastePlainText", icon: "pasteText" },
   ],
   [{ type: "dropdown", id: "heading", dropdown: "heading", label: "段落格式", width: 120 }],
   [
@@ -77,10 +78,16 @@ const toolbarGroups: ToolbarItemConfig[][] = [
   [
     { type: "button", id: "link", label: "超链接 (Ctrl+K)", command: "link", icon: "link" },
     { type: "button", id: "image", label: "图片", command: "image", icon: "image" },
+    { type: "button", id: "video", label: "视频", command: "video", icon: "video" },
+    { type: "button", id: "audio", label: "音频", command: "audio", icon: "audio" },
     { type: "button", id: "file", label: "文件", command: "file", icon: "file" },
     { type: "button", id: "table", label: "表格", command: "table", icon: "table" },
     { type: "button", id: "horizontalRule", label: "分割线 (---)", command: "horizontalRule", icon: "minus" },
     { type: "button", id: "specialChar", label: "特殊字符", command: "specialChar", icon: "caseSensitive" },
+    { type: "button", id: "emoji", label: "Emoji 表情", command: "emoji", icon: "emoji" },
+  ],
+  [
+    { type: "button", id: "findReplace", label: "查找替换 (Ctrl+F)", command: "findReplace", icon: "search" },
   ],
   [{ type: "button", id: "removeFormat", label: "清除格式 (Ctrl+\\)", command: "removeFormat", icon: "eraser" }],
   [

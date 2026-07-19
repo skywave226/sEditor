@@ -18,6 +18,12 @@ export interface EditorConfig {
   fileMaxSize?: number;
   /** 允许的文件扩展名白名单（小写，不含点）。默认 null 表示不限制 */
   fileAllowedExts?: string[] | null;
+  /** 自动保存草稿的存储 key。设置后启用自动保存（localStorage）。默认不启用 */
+  draftKey?: string;
+  /** 自动保存间隔（毫秒），默认 3000 */
+  draftInterval?: number;
+  /** 主题：light / dark / auto。auto 跟随系统。默认 light */
+  theme?: "light" | "dark" | "auto";
   onChange?: (html: string) => void;
   /** 编辑器实例就绪后回调（浏览器打包场景下用于获取 Editor 实例） */
   onEditorReady?: (editor: Editor) => void;
@@ -41,6 +47,10 @@ export type CommandRunner = (payload?: unknown) => void;
 export interface WordCount {
   chars: number;
   words: number;
+  /** 段落数 */
+  paragraphs: number;
+  /** 预计阅读时长（分钟） */
+  readingTime: number;
 }
 
 /** 图片插入选项 */
@@ -58,5 +68,22 @@ export interface FileInsertOptions {
   download?: boolean;
 }
 
+/** 视频/音频插入选项 */
+export interface MediaOptions {
+  src: string;
+  width?: string | number;
+  controls?: boolean;
+}
+
 /** 弹窗类型 */
-export type DialogType = "link" | "image" | "file" | "table" | "specialChar" | null;
+export type DialogType =
+  | "link"
+  | "image"
+  | "file"
+  | "table"
+  | "specialChar"
+  | "video"
+  | "audio"
+  | "emoji"
+  | "findReplace"
+  | null;

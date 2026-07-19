@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/core";
-import type { EditorCommand, ImageOptions, FileInsertOptions } from "../types";
+import type { EditorCommand, ImageOptions, FileInsertOptions, MediaOptions } from "../types";
 import { commandRegistry } from "./registry";
 
 const safe =
@@ -70,6 +70,17 @@ export const commandDefinitions: EditorCommand[] = [
       navigator.clipboard.readText().then(doInsert).catch(() => {
         // 读取失败（如权限被拒）：提示用户使用 Ctrl+V
         // 此处不抛错，避免影响 UI
+      });
+    }
+  }),
+  // 粘贴为纯文本：仅插入剪贴板的 text/plain，丢弃所有格式（HTML/样式）
+  cmd("pastePlainText", () => false, () => true, (e) => {
+    const doInsert = (text: string) => {
+      if (text) e.chain().focus().insertContent(text).run();
+    };
+    if (navigator.clipboard?.readText) {
+      navigator.clipboard.readText().then(doInsert).catch(() => {
+        // 权限被拒时静默失败
       });
     }
   }),
@@ -185,6 +196,20 @@ export const commandDefinitions: EditorCommand[] = [
   }),
   cmd("specialChar", () => false, () => true, (e, p) => {
     e.chain().focus().insertContent(String(p ?? "")).run();
+  }),
+  // 插入视频：<video controls>
+  cmd("video", () => false, () => true, (e, p) => {
+    const { src, width, controls } = (p ?? {}) as MediaOptions & { src: string };
+    if (!src) return;
+    const attrs: Record<string, unknown> = { src, controls: controls !== false };
+    if (width != null) attrs.width = width;
+    e.chain().focus().insertContent({ type: "video", attrs }).run();
+  }),
+  // 插入音频：<audio controls>
+  cmd("audio", () => false, () => true, (e, p) => {
+    const { src, controls } = (p ?? {}) as MediaOptions & { src: string };
+    if (!src) return;
+    e.chain().focus().insertContent({ type: "audio", attrs: { src, controls: controls !== false } }).run();
   }),
 ];
 

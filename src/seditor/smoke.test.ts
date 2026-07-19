@@ -74,6 +74,73 @@ describe("sEditor smoke", () => {
     editor.exec("file", { src: "https://example.com/a.txt", name: "a.txt" });
     expect(editor.getHTML()).toContain('href="https://example.com/a.txt"');
   });
+
+  it("exec('video', ...) 应插入 <video> 节点", () => {
+    editor.exec("video", { src: "https://example.com/movie.mp4", width: 480 });
+    const html = editor.getHTML();
+    expect(html).toContain("<video");
+    expect(html).toContain('src="https://example.com/movie.mp4"');
+    expect(html).toContain("controls");
+  });
+
+  it("exec('audio', ...) 应插入 <audio> 节点", () => {
+    editor.exec("audio", { src: "https://example.com/song.mp3" });
+    const html = editor.getHTML();
+    expect(html).toContain("<audio");
+    expect(html).toContain('src="https://example.com/song.mp3"');
+  });
+
+  it("exec('specialChar', ...) 应插入 emoji 字符", () => {
+    editor.setHTML("<p></p>");
+    editor.exec("specialChar", "🚀");
+    expect(editor.getText()).toContain("🚀");
+  });
+});
+
+/**
+ * 草稿自动保存：draftKey 启用后，卸载前应把内容写入 localStorage
+ */
+describe("草稿自动保存", () => {
+  let host: HTMLElement;
+  let editor: SEditorInstance;
+
+  beforeEach(() => {
+    host = mountHost();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+    localStorage.clear();
+  });
+
+  it("draftKey 启用并写入内容后，localStorage 应有草稿", () => {
+    editor = create({
+      target: host,
+      draftKey: "seditor-test-draft",
+      draftInterval: 100,
+    });
+    editor.setHTML("<p>草稿测试内容</p>");
+    // 等待至少一个保存周期
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const saved = localStorage.getItem("seditor-test-draft");
+        expect(saved).not.toBeNull();
+        expect(saved).toContain("草稿测试内容");
+        resolve();
+      }, 250);
+    });
+  });
+
+  it("草稿恢复：构造前 localStorage 有内容，应作为 initialContent 加载", () => {
+    localStorage.setItem("seditor-draft-restore", "<p>恢复的草稿</p>");
+    editor = create({
+      target: host,
+      draftKey: "seditor-draft-restore",
+    });
+    expect(editor.getHTML()).toContain("恢复的草稿");
+  });
 });
 
 /**
