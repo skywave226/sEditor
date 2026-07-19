@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core";
 import { buildExtensions } from "../editor/core/extensions";
 import { ensureCommandsRegistered } from "../editor/commands/definitions";
+import { commandRegistry } from "../editor/commands/registry";
 import { getPlaceholder, getHeight } from "../editor/runtime-config";
 import type { EditorConfig } from "../editor/types";
 import { cn, h } from "./dom";
@@ -186,13 +187,30 @@ export class SEditor {
     this.editor.chain().focus().setImage(attrs as { src: string; alt?: string }).run();
   }
 
+  /** 插入文件下载链接 */
+  insertFile(src: string, opts?: { name?: string; download?: boolean }): void {
+    if (!this.editor) return;
+    commandRegistry.run(this.editor, "file", {
+      src,
+      name: opts?.name,
+      download: opts?.download ?? true,
+    });
+  }
+
   exec(command: string, payload?: unknown): void {
     if (!this.editor) return;
+    // 优先路由到 commandRegistry（覆盖 image/file/table/link 等自定义命令）
+    const cmd = commandRegistry.get(command);
+    if (cmd) {
+      cmd.run(this.editor, payload);
+      return;
+    }
+    // 回退到 TipTap 原生命令
     const commands = this.editor.commands as unknown as Record<string, (...args: unknown[]) => void>;
-    const cmd = commands[command];
-    if (typeof cmd === "function") {
-      if (payload !== undefined) cmd.call(this.editor.commands, payload);
-      else cmd.call(this.editor.commands);
+    const nativeCmd = commands[command];
+    if (typeof nativeCmd === "function") {
+      if (payload !== undefined) nativeCmd.call(this.editor.commands, payload);
+      else nativeCmd.call(this.editor.commands);
     }
   }
 

@@ -121,6 +121,7 @@ export class DialogManager {
     let shell: HTMLElement | null = null;
     if (name === "link") shell = this.buildLinkDialog();
     else if (name === "image") shell = this.buildImageDialog();
+    else if (name === "file") shell = this.buildFileDialog();
     else if (name === "table") shell = this.buildTableDialog();
     else if (name === "specialChar") shell = this.buildSpecialCharDialog();
     if (!shell) {
@@ -251,47 +252,94 @@ export class DialogManager {
       if (tab === "upload") {
         const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
         fileInput.accept = "image/*";
+        // 多图上传：默认开启，可由配置关闭
+        if (this.config?.imageMultiUpload !== false) {
+          fileInput.multiple = true;
+        }
         const statusEl = h("div", { className: "mt-1 text-[12px]" });
+        const multiTip = h("div", { className: "mb-2 text-[12px] text-se-faint" });
+        multiTip.textContent = fileInput.multiple ? "可按住 Ctrl/Shift 多选，所有图片将依次插入。" : "每次仅可选择一张图片。";
         fileInput.addEventListener("change", async () => {
-          const file = fileInput.files?.[0];
-          if (!file) return;
+          const files = Array.from(fileInput.files ?? []);
+          if (files.length === 0) return;
           if (!this.config?.imageUpload) {
             statusEl.textContent = "未配置上传能力，请使用 URL 插入。";
             statusEl.className = "mt-1 text-[12px] text-red-500";
             return;
           }
           const maxSize = this.config.imageMaxSize ?? 5 * 1024 * 1024;
-          if (file.size > maxSize) {
-            statusEl.textContent = `图片过大，最大支持 ${Math.round(maxSize / 1024 / 1024)}MB。`;
-            statusEl.className = "mt-1 text-[12px] text-red-500";
-            return;
-          }
-          if (!file.type.startsWith("image/")) {
-            statusEl.textContent = "请选择图片文件。";
-            statusEl.className = "mt-1 text-[12px] text-red-500";
-            return;
-          }
-          uploading = true;
-          statusEl.textContent = "上传中…";
-          statusEl.className = "mt-1 text-[12px] text-se-primary";
-          try {
-            const url = await this.config.imageUpload(file);
-            if (!url || typeof url !== "string") {
-              throw new Error("上传返回值无效");
+          // 校验所有文件
+          const invalid: string[] = [];
+          for (const f of files) {
+            if (!f.type.startsWith("image/")) {
+              invalid.push(`${f.name}（非图片）`);
+            } else if (f.size > maxSize) {
+              invalid.push(`${f.name}（超过 ${Math.round(maxSize / 1024 / 1024)}MB）`);
             }
-            src = url;
-            tab = "url";
-            renderBody();
+          }
+          if (invalid.length > 0) {
+            statusEl.textContent = `以下文件将被跳过：${invalid.join("、")}`;
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+          }
+
+          const validFiles = files.filter(
+            (f) => f.type.startsWith("image/") && f.size <= maxSize,
+          );
+          if (validFiles.length === 0) {
+            return;
+          }
+
+          uploading = true;
+          statusEl.textContent = `上传中… (0/${validFiles.length})`;
+          statusEl.className = "mt-1 text-[12px] text-se-primary";
+          body.appendChild(statusEl);
+
+          // 单图：保持原有行为（切回 URL Tab 让用户继续设置 alt/width/align）
+          // 多图：逐张上传后批量插入，关闭对话框
+          const isMulti = validFiles.length > 1;
+          try {
+            const uploadFn = this.config.imageUpload;
+            if (!uploadFn) throw new Error("未配置上传能力");
+            if (!isMulti) {
+              const url = await uploadFn(validFiles[0]);
+              if (!url || typeof url !== "string") {
+                throw new Error("上传返回值无效");
+              }
+              src = url;
+              tab = "url";
+              uploading = false;
+              renderBody();
+            } else {
+              const urls: string[] = [];
+              for (let i = 0; i < validFiles.length; i++) {
+                statusEl.textContent = `上传中… (${i + 1}/${validFiles.length})`;
+                const url = await uploadFn(validFiles[i]);
+                if (!url || typeof url !== "string") {
+                  throw new Error(`第 ${i + 1} 张图片上传返回值无效`);
+                }
+                urls.push(url);
+              }
+              // 批量插入：每张图独立段落，按选定对齐方式
+              const chain = this.editor.chain().focus();
+              urls.forEach((u, idx) => {
+                if (idx > 0) chain.createParagraphNear();
+                chain.setImage({ src: u });
+                chain.setTextAlign(align);
+              });
+              chain.run();
+              uploading = false;
+              this.close();
+            }
           } catch (err) {
             console.error("[sEditor] 图片上传失败:", err);
             const msg = err instanceof Error ? err.message : "未知错误";
             statusEl.textContent = `上传失败：${msg}。`;
             statusEl.className = "mt-1 text-[12px] text-red-500";
-          } finally {
             uploading = false;
           }
         });
         body.appendChild(buildField("选择文件", fileInput));
+        body.appendChild(multiTip);
         if (uploading) body.appendChild(statusEl);
       } else {
         const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
@@ -312,6 +360,97 @@ export class DialogManager {
       body.appendChild(buildField("对齐方式", alignWrap));
     };
     renderBody();
+    return shell;
+  }
+
+  private buildFileDialog(): HTMLElement {
+    const { shell, body } = buildDialogShell({
+      title: "插入文件",
+      width: 460,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        // 文件对话框的上传是即时的，确定按钮仅用于关闭
+        this.close();
+      },
+      confirmText: "关闭",
+      confirmDisabled: false,
+    });
+
+    if (!this.config?.fileUpload) {
+      const tip = h("div", { className: "py-4 text-center text-[13px] text-se-faint" });
+      tip.textContent = "未配置 fileUpload 函数，无法使用文件上传功能。";
+      body.appendChild(tip);
+      return shell;
+    }
+
+    const cfg = this.config;
+    const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
+    const listEl = h("div", { className: "mt-2 flex flex-col gap-1.5" });
+    const tip = h("div", { className: "mb-2 text-[12px] text-se-faint" });
+    const maxSize = cfg.fileMaxSize ?? 20 * 1024 * 1024;
+    const allowedExts = cfg.fileAllowedExts ?? null;
+    tip.textContent = `单文件上限 ${Math.round(maxSize / 1024 / 1024)}MB${
+      allowedExts && allowedExts.length > 0 ? `，仅支持 ${allowedExts.join("、")}` : ""
+    }。上传成功后将作为下载链接插入。`;
+
+    fileInput.addEventListener("change", async () => {
+      const files = Array.from(fileInput.files ?? []);
+      if (files.length === 0) return;
+      for (const file of files) {
+        const row = h("div", { className: "flex items-center justify-between rounded border border-se-border px-2 py-1.5 text-[12px]" });
+        const nameEl = h("span", { className: "flex-1 truncate text-se-ink" });
+        nameEl.textContent = file.name;
+        const statusEl = h("span", { className: "ml-2 text-se-faint" });
+        statusEl.textContent = "上传中…";
+        row.appendChild(nameEl);
+        row.appendChild(statusEl);
+        listEl.appendChild(row);
+
+        // 校验大小
+        if (file.size > maxSize) {
+          statusEl.textContent = `超过 ${Math.round(maxSize / 1024 / 1024)}MB`;
+          statusEl.className = "ml-2 text-red-500";
+          continue;
+        }
+        // 校验扩展名
+        if (allowedExts && allowedExts.length > 0) {
+          const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+          if (!allowedExts.includes(ext)) {
+            statusEl.textContent = `不支持 .${ext}`;
+            statusEl.className = "ml-2 text-red-500";
+            continue;
+          }
+        }
+
+        try {
+          const uploadFn = cfg.fileUpload;
+          if (!uploadFn) throw new Error("未配置上传能力");
+          const url = await uploadFn(file);
+          if (!url || typeof url !== "string") {
+            throw new Error("上传返回值无效");
+          }
+          // 插入文件下载链接
+          commandRegistry.run(this.editor, "file", {
+            src: url,
+            name: file.name,
+            download: true,
+          });
+          statusEl.textContent = "已插入";
+          statusEl.className = "ml-2 text-green-600";
+        } catch (err) {
+          console.error("[sEditor] 文件上传失败:", err);
+          const msg = err instanceof Error ? err.message : "未知错误";
+          statusEl.textContent = `失败：${msg}`;
+          statusEl.className = "ml-2 text-red-500";
+        }
+      }
+      // 清空 input，允许再次选择同名文件
+      fileInput.value = "";
+    });
+
+    body.appendChild(buildField("选择文件", fileInput));
+    body.appendChild(tip);
+    body.appendChild(listEl);
     return shell;
   }
 

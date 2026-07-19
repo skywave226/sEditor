@@ -10,6 +10,7 @@
 - 字体、字号、行距、对齐、缩进
 - 有序/无序列表、引用、代码块
 - 插入超链接、图片、表格、分割线、特殊字符
+- **多图上传**（一次选择多张批量插入）与**文件上传**（插入下载链接）
 - 源码模式与全屏模式
 - 右键上下文菜单
 - 实时字数统计
@@ -106,6 +107,7 @@ window.sEditorConfig = {
 | `focus()` | 聚焦编辑器 |
 | `blur()` | 移除焦点 |
 | `insertImage(src, opts?)` | 插入图片 |
+| `insertFile(src, opts?)` | 插入文件下载链接（`opts.download` 默认 `true`） |
 | `exec(command, payload?)` | 执行 TipTap 命令 |
 | `getEditor()` | 获取底层 TipTap Editor 实例 |
 | `destroy()` | 销毁实例 |
@@ -255,14 +257,20 @@ export class SEditorComponent implements AfterViewInit, OnDestroy {
 
 ## 后端接口模板（仅用于测试）
 
-项目在 `server-templates/` 目录提供了 5 种常见后端语言的图片上传接口模板（Node.js / Python / Java / PHP / Go），**仅用于本地开发与功能联调，不能直接用于正式环境**。
+项目在 `server-templates/` 目录提供了 5 种常见后端语言的图片上传与文件上传接口模板（Node.js / Python / Java / PHP / Go），每个模板同时实现：
 
-> ⚠️ **风险提示**：这些模板虽然已包含类型白名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单等基础安全措施，但仍存在以下限制，**不能等同于生产级服务**：
+- `POST /api/upload` —— 图片上传（白名单 jpg/png/gif/webp + magic bytes 校验）
+- `POST /api/upload-file` —— 通用文件上传（黑名单拒绝 .html/.svg/.js/.exe/.php 等危险类型，响应含原始 `name`）
+
+**仅用于本地开发与功能联调，不能直接用于正式环境**。
+
+> ⚠️ **风险提示**：这些模板虽然已包含类型白名单/黑名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单等基础安全措施，但仍存在以下限制，**不能等同于生产级服务**：
 > - 内存级速率限制（多实例部署失效）
 > - 本地磁盘存储（无水平扩展能力、无冗余）
 > - 无文件清理机制（磁盘会持续增长）
 > - 静态 Bearer Token（非短期 JWT / OAuth2）
 > - 无图片处理（压缩/水印/缩略图）
+> - 无病毒扫描（通用文件上传尤其需要）
 > - 无监控、告警、日志归档
 
 正式环境请使用对象存储（OSS / COS / S3）+ CDN，或自行实现符合公司安全规范的上传服务。完整说明见 [server-templates/README.md](./server-templates/README.md)。
@@ -271,7 +279,7 @@ export class SEditorComponent implements AfterViewInit, OnDestroy {
 
 - `src/seditor/SEditor.ts` — 主类，整合 TipTap Editor 与所有 UI
 - `src/seditor/toolbar.ts` — 工具栏与下拉菜单（原生 DOM）
-- `src/seditor/dialogs.ts` — 对话框（链接/图片/表格/特殊字符）
+- `src/seditor/dialogs.ts` — 对话框（链接/图片/文件/表格/特殊字符）
 - `src/seditor/context-menu.ts` — 右键菜单
 - `src/seditor/status-bar.ts` — 状态栏与字数统计
 - `src/seditor/source-view.ts` — 源码模式

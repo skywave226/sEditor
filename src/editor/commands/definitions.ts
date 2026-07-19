@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/core";
-import type { EditorCommand, ImageOptions } from "../types";
+import type { EditorCommand, ImageOptions, FileInsertOptions } from "../types";
 import { commandRegistry } from "./registry";
 
 const safe =
@@ -120,6 +120,31 @@ export const commandDefinitions: EditorCommand[] = [
   cmd("table", () => false, () => true, (e, p) => {
     const { rows, cols, withHeader } = (p ?? {}) as { rows: number; cols: number; withHeader?: boolean };
     e.chain().focus().insertTable({ rows, cols, withHeaderRow: withHeader !== false }).run();
+  }),
+  cmd("file", () => false, () => true, (e, p) => {
+    const { src, name, download } = (p ?? {}) as FileInsertOptions & { src: string };
+    if (!src) return;
+    const text = name || src.split("/").pop() || "文件";
+    // 通过 insertContent 插入文本节点并应用 link mark（含 download 属性）
+    // DownloadableLink 扩展已支持 download 属性的存储与渲染
+    e.chain()
+      .focus()
+      .insertContent({
+        type: "text",
+        text,
+        marks: [
+          {
+            type: "link",
+            attrs: {
+              href: src,
+              target: "_blank",
+              download: download === false ? null : "",
+            },
+          },
+        ],
+      })
+      .insertContent({ type: "text", text: " " })
+      .run();
   }),
   cmd("specialChar", () => false, () => true, (e, p) => {
     e.chain().focus().insertContent(String(p ?? "")).run();

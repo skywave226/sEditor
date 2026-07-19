@@ -12,6 +12,7 @@
 #   MAX_SIZE       单文件大小上限，字节（默认 5MB）
 #   RATE_LIMIT     每 IP 每分钟上传次数（默认 10）
 #   FLASK_DEBUG    调试模式（默认 0，生产必须为 0）
+#   FILE_MAX_SIZE  通用文件大小上限，字节（默认 20MB，用于 /api/upload-file）
 
 import os
 import uuid
@@ -30,6 +31,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 MAX_SIZE = int(os.environ.get("MAX_SIZE", 5 * 1024 * 1024))
+FILE_MAX_SIZE = int(os.environ.get("FILE_MAX_SIZE", 20 * 1024 * 1024))
 PUBLIC_BASE = os.environ.get("PUBLIC_BASE", "http://localhost:5000/uploads")
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:5173").split(",")
 UPLOAD_TOKEN = os.environ.get("UPLOAD_TOKEN", "")
@@ -44,6 +46,17 @@ MAGIC_BYTES = {
     "png": b"\x89PNG\r\n\x1a\n",
     "gif": b"GIF8",
     "webp": b"RIFF",
+}
+
+# 通用文件上传扩展名黑名单：禁止可执行/脚本/HTML 等危险类型
+FILE_EXT_BLACKLIST = {
+    ".html", ".htm", ".xhtml", ".svg", ".xml",
+    ".js", ".mjs", ".ts", ".jsx", ".tsx",
+    ".exe", ".bat", ".cmd", ".sh", ".ps1", ".msi",
+    ".php", ".jsp", ".asp", ".aspx",
+    ".jar", ".war", ".class",
+    ".py", ".rb", ".pl",
+    ".env", ".config", ".ini",
 }
 
 # CORS 白名单
@@ -104,7 +117,9 @@ def auth_check():
 def pre_check():
     # 早期拒绝超大请求（避免 read() 时 OOM）
     cl = request.content_length
-    if cl and cl > MAX_SIZE + 1024:  # 留 1KB 给 multipart 头
+    # /api/upload-file 允许更大的体积
+    limit = FILE_MAX_SIZE if request.path == "/api/upload-file" else MAX_SIZE
+    if cl and cl > limit + 1024:  # 留 1KB 给 multipart 头
         return jsonify({"error": "文件过大"}), 413
 
 
@@ -185,6 +200,76 @@ def upload():
     url = f"{PUBLIC_BASE}/{final_name}"
     log.info(f"upload ok ip={ip} file={final_name} size={size}")
     return jsonify({"url": url})
+
+
+# 文件上传接口：POST /api/upload-file
+# 用于 sEditor 的「文件」功能（插入下载链接，非图片）
+# 请求：multipart/form-data，字段名 file
+# 鉴权：Authorization: Bearer <UPLOAD_TOKEN>（若配置了 UPLOAD_TOKEN）
+# 成功响应：{ "url": "https://.../xxx.pdf", "name": "原始文件名.pdf" }
+# 失败响应：{ "error": "错误信息" }
+@app.route("/api/upload-file", methods=["POST"])
+def upload_file():
+    ip = request.remote_addr or "unknown"
+
+    if not rate_limit():
+        log.warning(f"upload-file rate-limited ip={ip}")
+        return jsonify({"error": "请求过于频繁，请稍后再试"}), 429
+
+    if not auth_check():
+        log.warning(f"upload-file unauthorized ip={ip}")
+        return jsonify({"error": "未授权"}), 401
+
+    if "file" not in request.files:
+        return jsonify({"error": "未接收到文件"}), 400
+
+    f = request.files["file"]
+    if not f or f.filename == "":
+        return jsonify({"error": "未选择文件"}), 400
+
+    original_name = secure_filename(f.filename) or "file"
+    ext = os.path.splitext(original_name)[1].lower()
+    if not ext:
+        return jsonify({"error": "文件名缺少扩展名"}), 400
+    if ext in FILE_EXT_BLACKLIST:
+        log.warning(f"upload-file rejected ip={ip} ext={ext}")
+        return jsonify({"error": f"不允许上传 {ext} 类型的文件"}), 400
+
+    tmp_name = f"tmp_{uuid.uuid4().hex}"
+    tmp_path = os.path.join(UPLOAD_DIR, tmp_name)
+    try:
+        f.save(tmp_path)
+    except OSError as e:
+        log.error(f"save failed ip={ip} err={e}")
+        return jsonify({"error": "服务器内部错误，请稍后重试"}), 500
+
+    try:
+        size = os.path.getsize(tmp_path)
+    except OSError:
+        size = 0
+    if size > FILE_MAX_SIZE:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        log.warning(f"upload-file too large ip={ip} size={size}")
+        return jsonify({"error": f"文件过大，最大支持 {FILE_MAX_SIZE // 1024 // 1024}MB"}), 400
+
+    final_name = f"{uuid.uuid4().hex}{ext}"
+    final_path = os.path.join(UPLOAD_DIR, final_name)
+    try:
+        os.rename(tmp_path, final_path)
+    except OSError as e:
+        log.error(f"rename failed ip={ip} err={e}")
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return jsonify({"error": "服务器内部错误，请稍后重试"}), 500
+
+    url = f"{PUBLIC_BASE}/{final_name}"
+    log.info(f"upload-file ok ip={ip} file={final_name} original={original_name} size={size}")
+    return jsonify({"url": url, "name": f.filename})
 
 
 @app.route("/uploads/<filename>")

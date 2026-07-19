@@ -12,11 +12,12 @@
 //   CORS_ORIGIN    允许的来源，逗号分隔（默认 http://localhost:5173）
 //   UPLOAD_TOKEN   上传鉴权 token，留空则不鉴权（仅开发用）
 //   MAX_SIZE       单文件大小上限，字节（默认 5MB）
+//   FILE_MAX_SIZE  通用文件大小上限，字节（默认 20MB，用于 /api/upload-file）
 //   RATE_LIMIT     每 IP 每分钟上传次数（默认 10）
 //
-// 接口：POST /api/upload
+// 接口：POST /api/upload（图片）、POST /api/upload-file（通用文件）
 // 鉴权：Authorization: Bearer <UPLOAD_TOKEN>（若配置了 UPLOAD_TOKEN）
-// 成功响应：{ "url": "https://.../xxx.png" }
+// 成功响应：{ "url": "https://.../xxx.png" } 或 { "url": "...", "name": "原始文件名.pdf" }
 // 失败响应：{ "error": "错误信息" }
 
 package main
@@ -39,17 +40,19 @@ import (
 
 // 配置
 var (
-	maxSize    int64
-	uploadDir  string
-	publicBase string
-	corsOrigins []string
-	uploadToken string
+	maxSize      int64
+	fileMaxSize  int64
+	uploadDir    string
+	publicBase   string
+	corsOrigins  []string
+	uploadToken  string
 	rateLimitNum int
 )
 
 const (
-	defaultMaxSize    = 5 * 1024 * 1024 // 5MB
-	defaultRateLimit  = 10
+	defaultMaxSize     = 5 * 1024 * 1024  // 5MB
+	defaultFileMaxSize = 20 * 1024 * 1024 // 20MB
+	defaultRateLimit   = 10
 )
 
 // 仅允许的扩展名（不含 SVG，因 SVG 可内嵌脚本导致 XSS）
@@ -79,10 +82,21 @@ var extByType = map[string]string{
 	".webp": ".webp",
 }
 
+// 通用文件上传扩展名黑名单：禁止可执行/脚本/HTML 等危险类型
+var fileExtBlacklist = map[string]bool{
+	".html": true, ".htm": true, ".xhtml": true, ".svg": true, ".xml": true,
+	".js": true, ".mjs": true, ".ts": true, ".jsx": true, ".tsx": true,
+	".exe": true, ".bat": true, ".cmd": true, ".sh": true, ".ps1": true, ".msi": true,
+	".php": true, ".jsp": true, ".asp": true, ".aspx": true,
+	".jar": true, ".war": true, ".class": true,
+	".py": true, ".rb": true, ".pl": true,
+	".env": true, ".config": true, ".ini": true,
+}
+
 // 速率限制桶
 type rateBucket struct {
-	count    int
-	resetAt  time.Time
+	count   int
+	resetAt time.Time
 }
 
 var (
@@ -97,6 +111,14 @@ func loadConfig() {
 		fmt.Sscanf(v, "%d", &n)
 		if n > 0 {
 			maxSize = n
+		}
+	}
+	fileMaxSize = defaultFileMaxSize
+	if v := os.Getenv("FILE_MAX_SIZE"); v != "" {
+		var n int64
+		fmt.Sscanf(v, "%d", &n)
+		if n > 0 {
+			fileMaxSize = n
 		}
 	}
 	uploadDir = os.Getenv("UPLOAD_DIR")
@@ -154,6 +176,7 @@ func main() {
 
 	// 上传接口
 	r.POST("/api/upload", rateLimitMiddleware(), authMiddleware(), handleUpload)
+	r.POST("/api/upload-file", rateLimitMiddleware(), authMiddleware(), handleFileUpload)
 
 	host := os.Getenv("HOST")
 	if host == "" {
@@ -294,6 +317,54 @@ func handleUpload(c *gin.Context) {
 	url := publicBase + "/" + finalName
 	log.Printf("[seditor-upload] upload ok ip=%s file=%s size=%d", ip, finalName, file.Size)
 	c.JSON(http.StatusOK, gin.H{"url": url})
+}
+
+// 通用文件上传：用于 sEditor 的「文件」功能（插入下载链接，非图片）
+// 成功响应：{ "url": "...", "name": "原始文件名.pdf" }
+func handleFileUpload(c *gin.Context) {
+	ip := clientIP(c)
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "未接收到文件"})
+		return
+	}
+
+	// 大小检查
+	if file.Size > fileMaxSize {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("文件过大，最大支持 %.1fMB", float64(fileMaxSize)/1024.0/1024.0),
+		})
+		return
+	}
+
+	// 扩展名黑名单校验
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "文件名缺少扩展名"})
+		return
+	}
+	if fileExtBlacklist[ext] {
+		log.Printf("[seditor-upload] upload-file rejected ip=%s ext=%s", ip, ext)
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("不允许上传 %s 类型的文件", ext)})
+		return
+	}
+
+	// 随机文件名（保留原扩展名）
+	finalName := hex.EncodeToString(uuid.New()[:]) + ext
+	finalPath := filepath.Join(uploadDir, finalName)
+	if err := c.SaveUploadedFile(file, finalPath); err != nil {
+		log.Printf("[seditor-upload] save failed ip=%s err=%v", ip, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "服务器内部错误，请稍后重试"})
+		return
+	}
+
+	// 显式设置权限 0640
+	_ = os.Chmod(finalPath, 0o640)
+
+	url := publicBase + "/" + finalName
+	log.Printf("[seditor-upload] upload-file ok ip=%s file=%s original=%s size=%d", ip, finalName, file.Filename, file.Size)
+	c.JSON(http.StatusOK, gin.H{"url": url, "name": file.Filename})
 }
 
 func verifyMagic(path, ext string) bool {

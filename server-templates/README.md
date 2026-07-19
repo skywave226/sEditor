@@ -1,19 +1,24 @@
-# sEditor 图片上传后端模板
+# sEditor 图片与文件上传后端模板
 
-为 sEditor 富文本编辑器提供图片上传接口的 5 种常见后端语言模板，统一接口契约、统一安全策略。
+为 sEditor 富文本编辑器提供图片上传与通用文件上传接口的 5 种常见后端语言模板，统一接口契约、统一安全策略。
+
+每个模板同时实现两个接口：
+
+- **图片接口** `POST /api/upload` —— 用于编辑器的「插入图片」对话框（本地上传 Tab，支持多图）
+- **文件接口** `POST /api/upload-file` —— 用于编辑器的「文件」按钮（插入下载链接）
 
 ## 接口契约
 
-所有模板实现统一接口：
-
-| 项 | 说明 |
-| --- | --- |
-| 路径 | `POST /api/upload`（PHP 为 `/api/upload.php`） |
-| Content-Type | `multipart/form-data` |
-| 表单字段 | `file`（图片文件） |
-| 鉴权 | `Authorization: Bearer <UPLOAD_TOKEN>`（配置 `UPLOAD_TOKEN` 时启用） |
-| 成功响应 | `200 { "url": "https://your-domain/uploads/xxx.png" }` |
-| 失败响应 | `4xx/5xx { "error": "错误描述" }` |
+| 项 | 图片接口 `/api/upload` | 文件接口 `/api/upload-file` |
+| --- | --- | --- |
+| 路径（PHP） | `/api/upload.php` | `/api/upload-file.php` |
+| Content-Type | `multipart/form-data` | `multipart/form-data` |
+| 表单字段 | `file` | `file` |
+| 鉴权 | `Authorization: Bearer <UPLOAD_TOKEN>`（可选） | 同左 |
+| 成功响应 | `200 { "url": "https://your-domain/uploads/xxx.png" }` | `200 { "url": "...", "name": "原始文件名.pdf" }` |
+| 失败响应 | `4xx/5xx { "error": "错误描述" }` | 同左 |
+| 默认大小上限 | 5MB（`MAX_SIZE`） | 20MB（`FILE_MAX_SIZE`） |
+| 扩展名校验 | 白名单：jpg/jpeg/png/gif/webp | 黑名单：拒绝 .html/.svg/.js/.exe/.php 等 24 类危险文件 |
 
 ## 模板清单
 
@@ -22,7 +27,7 @@
 | Node.js (Express) | `node-express/upload-server.js` | express、multer、cors | 3000 |
 | Python (Flask) | `python-flask/app.py` | flask、flask-cors | 5000 |
 | Java (Spring Boot) | `java-springboot/UploadController.java` + `application.yml` | spring-boot-starter-web | 8080 |
-| PHP（原生） | `php/upload.php` + `php/uploads/.htaccess` | 零依赖 | 任意 |
+| PHP（原生） | `php/upload.php` + `php/upload-file.php` + `php/uploads/.htaccess` | 零依赖 | 任意 |
 | Go (Gin) | `go-gin/main.go` | gin、google/uuid | 8080 |
 
 ## 环境变量
@@ -37,7 +42,8 @@
 | `PUBLIC_BASE` | 静态资源 URL 前缀 | `http://localhost:<PORT>/uploads` |
 | `CORS_ORIGIN` | 允许的来源，逗号分隔 | `http://localhost:5173` |
 | `UPLOAD_TOKEN` | 鉴权 token，留空则不鉴权 | 空 |
-| `MAX_SIZE` | 单文件大小上限（字节） | `5242880`（5MB） |
+| `MAX_SIZE` | 图片单文件大小上限（字节） | `5242880`（5MB） |
+| `FILE_MAX_SIZE` | 通用文件大小上限（字节，用于 `/api/upload-file`） | `20971520`（20MB） |
 | `RATE_LIMIT` | 每 IP 每分钟上传次数 | `10` |
 | `FLASK_DEBUG` | Flask 调试模式（仅 Python） | `0` |
 
@@ -45,8 +51,9 @@
 
 | 特性 | 说明 |
 | --- | --- |
-| **类型白名单** | 仅允许 jpg/jpeg/png/gif/webp（**SVG 已禁用**，因可内嵌脚本导致 XSS） |
-| **Magic Bytes 校验** | 读取文件头字节判断真实类型，防伪造扩展名 |
+| **图片类型白名单** | 仅允许 jpg/jpeg/png/gif/webp（**SVG 已禁用**，因可内嵌脚本导致 XSS） |
+| **文件扩展名黑名单** | 通用文件接口拒绝 .html/.htm/.svg/.xml/.js/.ts/.exe/.bat/.sh/.ps1/.msi/.php/.jsp/.asp/.aspx/.jar/.war/.class/.py/.rb/.pl/.env/.config/.ini 等 24 类危险文件 |
+| **Magic Bytes 校验** | 图片接口读取文件头字节判断真实类型，防伪造扩展名 |
 | **文件大小限制** | multer/Flask/Spring/move_uploaded_file/gin 均配置上限 |
 | **随机文件名** | UUID/cryptographically random，防路径遍历与覆盖 |
 | **CORS 白名单** | 通过 `CORS_ORIGIN` 配置允许的来源，不再使用 `*` |
@@ -70,7 +77,7 @@
 - [ ] **设置反向代理**：Nginx/Caddy 在前，终止 TLS、限制请求体大小、转发 `X-Forwarded-For`
 - [ ] **关闭调试模式**：Python `FLASK_DEBUG=0`，Java 不要开 `--debug`
 - [ ] **限制监听地址**：仅监听 `127.0.0.1`，通过反向代理对外
-- [ ] **设置 `client_max_body_size`**：Nginx 配置 `client_max_body_size 6m;`
+- [ ] **设置 `client_max_body_size`**：Nginx 配置 `client_max_body_size 21m;`（需覆盖文件接口的 20MB）
 - [ ] **独立运行账户**：不要用 root 跑服务，建议建专用账户
 - [ ] **上传目录权限**：`0750` 目录 + `0640` 文件，禁止执行
 - [ ] **静态资源响应头**：Nginx 加 `add_header X-Content-Type-Options nosniff;`
@@ -87,24 +94,42 @@
 
 ## 前端接入示例
 
-以 Node.js 后端为例：
+以 Node.js 后端为例（同时配置图片与文件上传）：
 
 ```js
+const BACKEND = 'https://api.your-domain.com';
+const TOKEN = 'your-secret-token'; // 与后端 UPLOAD_TOKEN 一致
+
 const editor = sEditor.create({
   target: '#editor',
-  imageMaxSize: 5 * 1024 * 1024,
+  imageMaxSize: 5 * 1024 * 1024,    // 5MB
+  fileMaxSize: 20 * 1024 * 1024,    // 20MB
+
+  // 图片上传（支持多图）
   imageUpload: async (file) => {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch('https://api.your-domain.com/api/upload', {
+    const res = await fetch(`${BACKEND}/api/upload`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + UPLOAD_TOKEN },
+      headers: { Authorization: 'Bearer ' + TOKEN },
       body: fd,
     });
     const json = await res.json();
-    if (!res.ok || !json.url) {
-      throw new Error(json.error || '上传失败');
-    }
+    if (!res.ok || !json.url) throw new Error(json.error || '上传失败');
+    return json.url;
+  },
+
+  // 文件上传（任意非黑名单文件，作为下载链接插入）
+  fileUpload: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BACKEND}/api/upload-file`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN },
+      body: fd,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) throw new Error(json.error || '上传失败');
     return json.url;
   },
 });
@@ -120,8 +145,8 @@ server {
     ssl_certificate     /etc/ssl/your-domain.crt;
     ssl_certificate_key /etc/ssl/your-domain.key;
 
-    # 限制请求体大小
-    client_max_body_size 6m;
+    # 限制请求体大小（需覆盖文件接口的 20MB）
+    client_max_body_size 21m;
 
     # 上传接口转发
     location /api/ {
@@ -154,4 +179,5 @@ server {
 2. **本地磁盘存储**：单机部署，不支持水平扩展；生产建议接 OSS/S3
 3. **无文件清理**：磁盘会持续增长，需配合 cron
 4. **无图片处理**：不做缩放/压缩/水印，需要可接 sharp/ImageMagick
-5. **Bearer Token 是静态的**：建议替换为短期 JWT 或 OAuth2
+5. **无病毒扫描**：通用文件上传接口 `/api/upload-file` 接收任意非黑名单文件，生产环境强烈建议接入 ClamAV / 杀毒引擎
+6. **Bearer Token 是静态的**：建议替换为短期 JWT 或 OAuth2

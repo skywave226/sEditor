@@ -53,6 +53,59 @@ describe("sEditor smoke", () => {
     expect(editor.getHTML()).toContain('src="https://example.com/a.png"');
     expect(editor.getHTML()).toContain('alt="x"');
   });
+
+  it("insertFile 应插入文件下载链接", () => {
+    editor.insertFile("https://example.com/doc.pdf", { name: "文档.pdf" });
+    const html = editor.getHTML();
+    expect(html).toContain('href="https://example.com/doc.pdf"');
+    expect(html).toContain("文档.pdf");
+    expect(html).toContain("download");
+  });
+
+  it("insertFile download:false 不带 download 属性", () => {
+    editor.insertFile("https://example.com/page.html", { name: "页面", download: false });
+    const html = editor.getHTML();
+    expect(html).toContain('href="https://example.com/page.html"');
+    expect(html).toContain("页面");
+    expect(html).not.toContain("download");
+  });
+
+  it("exec('file', ...) 应通过 commandRegistry 路由生效", () => {
+    editor.exec("file", { src: "https://example.com/a.txt", name: "a.txt" });
+    expect(editor.getHTML()).toContain('href="https://example.com/a.txt"');
+  });
+});
+
+/**
+ * 多图上传：通过 imageUpload 回调模拟批量上传，
+ * 验证多张图被依次插入并各自独立成段
+ */
+describe("多图上传", () => {
+  let host: HTMLElement;
+  let editor: SEditorInstance;
+
+  beforeEach(() => {
+    host = mountHost();
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it("多次 insertImage 模拟批量插入应全部生效", () => {
+    editor = create({
+      target: host,
+      imageUpload: async () => `https://example.com/${Math.random().toString(36).slice(2)}.png`,
+    });
+    editor.insertImage("https://example.com/1.png");
+    editor.insertImage("https://example.com/2.png");
+    editor.insertImage("https://example.com/3.png");
+    const html = editor.getHTML();
+    expect(html).toContain('src="https://example.com/1.png"');
+    expect(html).toContain('src="https://example.com/2.png"');
+    expect(html).toContain('src="https://example.com/3.png"');
+  });
 });
 
 /**

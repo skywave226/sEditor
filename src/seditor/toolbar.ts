@@ -11,7 +11,7 @@ import {
 } from "../editor/runtime-config";
 import type { UIStore } from "./store";
 
-const DIALOG_COMMANDS = new Set(["link", "image", "table", "specialChar"]);
+const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar"]);
 
 /** 归一化字体值用于比较：去引号、去空白、小写 */
 function normalizeFontValue(v: string | undefined | null): string {
@@ -72,6 +72,7 @@ const toolbarGroups: ToolbarItemConfig[][] = [
   [
     { type: "button", id: "link", label: "超链接", command: "link", icon: "link" },
     { type: "button", id: "image", label: "图片", command: "image", icon: "image" },
+    { type: "button", id: "file", label: "文件", command: "file", icon: "file" },
     { type: "button", id: "table", label: "表格", command: "table", icon: "table" },
     { type: "button", id: "horizontalRule", label: "分割线", command: "horizontalRule", icon: "minus" },
     { type: "button", id: "specialChar", label: "特殊字符", command: "specialChar", icon: "caseSensitive" },

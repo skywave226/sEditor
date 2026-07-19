@@ -7,9 +7,9 @@
 //
 // 依赖（pom.xml）：spring-boot-starter-web
 //
-// 启动后访问：http://localhost:8080/api/upload
+// 启动后访问：http://localhost:8080/api/upload（图片）、http://localhost:8080/api/upload-file（通用文件）
 //
-// 成功响应：{ "url": "https://.../xxx.png" }
+// 成功响应：{ "url": "https://.../xxx.png" } 或 { "url": "...", "name": "原始文件名.pdf" }
 // 失败响应：{ "error": "错误信息" }
 //
 // 配置见 application.yml，所有项目均可通过环境变量覆盖。
@@ -136,6 +136,9 @@ class UploadController {
     @Value("${upload.max-size:5242880}")
     private long maxSize;
 
+    @Value("${upload.file-max-size:20971520}")
+    private long fileMaxSize;
+
     @Value("${upload.public-base:http://localhost:8080/uploads}")
     private String publicBase;
 
@@ -158,6 +161,16 @@ class UploadController {
     );
     private static final Map<String, String> EXT_BY_TYPE = Map.of(
             "jpg", ".jpg", "jpeg", ".jpg", "png", ".png", "gif", ".gif", "webp", ".webp"
+    );
+    // 通用文件上传扩展名黑名单：禁止可执行/脚本/HTML 等危险类型
+    private static final Set<String> FILE_EXT_BLACKLIST = Set.of(
+            ".html", ".htm", ".xhtml", ".svg", ".xml",
+            ".js", ".mjs", ".ts", ".jsx", ".tsx",
+            ".exe", ".bat", ".cmd", ".sh", ".ps1", ".msi",
+            ".php", ".jsp", ".asp", ".aspx",
+            ".jar", ".war", ".class",
+            ".py", ".rb", ".pl",
+            ".env", ".config", ".ini"
     );
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger("seditor-upload");
@@ -275,6 +288,111 @@ class UploadController {
         String url = publicBase + "/" + finalName;
         log.info("upload ok ip={} file={} size={}", ip, finalName, file.getSize());
         resp.put("url", url);
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * 通用文件上传接口：用于 sEditor 的「文件」功能（插入下载链接，非图片）
+     * 成功响应：{ "url": "...", "name": "原始文件名.pdf" }
+     */
+    @PostMapping("/upload-file")
+    public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file,
+                                                          HttpServletRequest req) {
+        Map<String, String> resp = new HashMap<>();
+        String ip = clientIp(req);
+
+        // 速率限制
+        if (!rateLimitConfig.allow(ip)) {
+            log.warn("upload-file rate-limited ip={}", ip);
+            resp.put("error", "请求过于频繁，请稍后再试");
+            return ResponseEntity.status(429).body(resp);
+        }
+
+        // 鉴权
+        if (!uploadToken.isEmpty()) {
+            String auth = req.getHeader("Authorization");
+            if (!("Bearer " + uploadToken).equals(auth)) {
+                log.warn("upload-file unauthorized ip={}", ip);
+                resp.put("error", "未授权");
+                return ResponseEntity.status(401).body(resp);
+            }
+        }
+
+        if (file.isEmpty()) {
+            resp.put("error", "未接收到文件");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isEmpty()) {
+            resp.put("error", "文件名无效");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        // 扩展名黑名单校验
+        String ext = "";
+        int dotIdx = originalFilename.lastIndexOf('.');
+        if (dotIdx >= 0 && dotIdx < originalFilename.length() - 1) {
+            ext = originalFilename.substring(dotIdx).toLowerCase();
+        }
+        if (ext.isEmpty()) {
+            resp.put("error", "文件名缺少扩展名");
+            return ResponseEntity.badRequest().body(resp);
+        }
+        if (FILE_EXT_BLACKLIST.contains(ext)) {
+            log.warn("upload-file rejected ip={} ext={}", ip, ext);
+            resp.put("error", "不允许上传 " + ext + " 类型的文件");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        if (file.getSize() > fileMaxSize) {
+            resp.put("error", String.format("文件过大，最大支持 %.1fMB", fileMaxSize / 1024.0 / 1024.0));
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        // 校验上传目录
+        File dir = new File(uploadDir);
+        try {
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new IOException("无法创建上传目录: " + uploadDir);
+            }
+            if (!dir.isDirectory()) {
+                throw new IOException("上传路径不是目录: " + uploadDir);
+            }
+        } catch (IOException e) {
+            log.error("upload dir invalid ip={} err={}", ip, e.getMessage());
+            resp.put("error", "服务器内部错误，请稍后重试");
+            return ResponseEntity.internalServerError().body(resp);
+        }
+
+        // 随机文件名（保留原扩展名）
+        String finalName = UUID.randomUUID().toString().replace("-", "") + ext;
+        Path finalPath = Paths.get(uploadDir, finalName);
+        try (InputStream in = file.getInputStream()) {
+            Files.copy(in, finalPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.error("save failed ip={} err={}", ip, e.getMessage());
+            resp.put("error", "服务器内部错误，请稍后重试");
+            return ResponseEntity.internalServerError().body(resp);
+        }
+
+        // 显式设置文件权限（仅 owner 可读写）
+        try {
+            Set<PosixFilePermission> perms = Set.of(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE
+            );
+            Files.setPosixFilePermissions(finalPath, perms);
+        } catch (UnsupportedOperationException ignored) {
+            // 非 POSIX 系统（如 Windows）忽略
+        } catch (IOException e) {
+            log.warn("set perms failed ip={} err={}", ip, e.getMessage());
+        }
+
+        String url = publicBase + "/" + finalName;
+        log.info("upload-file ok ip={} file={} original={} size={}", ip, finalName, originalFilename, file.getSize());
+        resp.put("url", url);
+        resp.put("name", originalFilename);
         return ResponseEntity.ok(resp);
     }
 

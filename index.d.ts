@@ -16,10 +16,18 @@ export interface EditorConfig {
   placeholder?: string;
   height?: number | string;
   toolbar?: string[] | false;
-  /** 自定义图片上传函数，返回图片 URL */
+  /** 自定义图片上传函数，返回图片 URL（单张） */
   imageUpload?: (file: File) => Promise<string>;
   /** 单张图片最大字节数，默认 5MB */
   imageMaxSize?: number;
+  /** 是否允许多图上传（一次选择多个文件），默认 true */
+  imageMultiUpload?: boolean;
+  /** 自定义文件上传函数，返回文件 URL（用于插入文件下载链接） */
+  fileUpload?: (file: File) => Promise<string>;
+  /** 单个文件最大字节数，默认 20MB */
+  fileMaxSize?: number;
+  /** 允许的文件扩展名白名单（小写，不含点）。默认 null 表示不限制 */
+  fileAllowedExts?: string[] | null;
   onChange?: (html: string) => void;
   /** 编辑器实例就绪后回调（浏览器打包场景下用于获取 Editor 实例） */
   onEditorReady?: (editor: Editor) => void;
@@ -38,6 +46,7 @@ export interface SEditorInstance {
   focus(): void;
   blur(): void;
   insertImage(src: string, opts?: { alt?: string; width?: number | string }): void;
+  insertFile(src: string, opts?: { name?: string; download?: boolean }): void;
   exec(command: string, payload?: unknown): void;
   destroy(): void;
   getEditor(): Editor | null;

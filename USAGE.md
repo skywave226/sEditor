@@ -24,10 +24,12 @@
   - [5.1 通过 `exec` 执行命令](#51-通过-exec-执行命令)
   - [5.2 命令清单](#52-命令清单)
 - [六、事件监听](#六事件监听)
-- [七、图片上传自定义](#七图片上传自定义)
-  - [7.1 接口协议](#71-接口协议)
-  - [7.2 后端模板](#72-后端模板)
-  - [7.3 示例：接入 Node.js 后端](#73-示例接入-nodejs-后端)
+- [七、图片与文件上传](#七图片与文件上传)
+  - [7.1 多图上传](#71-多图上传)
+  - [7.2 文件上传（下载链接）](#72-文件上传下载链接)
+  - [7.3 接口协议](#73-接口协议)
+  - [7.4 后端模板](#74-后端模板)
+  - [7.5 示例：接入 Node.js 后端](#75-示例接入-nodejs-后端)
 - [八、与前端框架集成](#八与前端框架集成)
   - [8.1 React](#81-react)
   - [8.2 Vue 3](#82-vue-3)
@@ -142,7 +144,12 @@ const list = sEditor.createAll('.my-editor');
 | `placeholder` | `string` | `在此输入正文内容……`（可被 `window.sEditorConfig.placeholder` 覆盖） | 空内容时占位提示 |
 | `height` | `number \| string` | `300`（可被 `window.sEditorConfig.height` 覆盖） | 编辑区最小高度，数字为 px |
 | `toolbar` | `string[] \| false` | （内部默认） | 工具栏按钮配置（保留字段，当前版本内部固定） |
-| `imageUpload` | `(file: File) => Promise<string>` | — | 自定义图片上传函数，返回图片 URL（详见 [七](#七图片上传自定义)） |
+| `imageUpload` | `(file: File) => Promise<string>` | — | 自定义图片上传函数，返回图片 URL（详见 [七](#七图片与文件上传)） |
+| `imageMultiUpload` | `boolean` | `true` | 是否允许一次选择多张图片批量上传。关闭后图片对话框每次仅允许选择一张 |
+| `imageMaxSize` | `number` | `5242880`（5MB） | 单张图片大小上限（字节）。前端会跳过超限的图片并提示 |
+| `fileUpload` | `(file: File) => Promise<string>` | — | 自定义通用文件上传函数，返回文件 URL（用于插入下载链接，详见 [7.2](#72-文件上传下载链接)） |
+| `fileMaxSize` | `number` | `20971520`（20MB） | 单个文件大小上限（字节） |
+| `fileAllowedExts` | `string[] \| null` | `null` | 允许的文件扩展名白名单（小写、不含点）。`null` 表示不限制（仍受后端黑名单约束） |
 | `onChange` | `(html: string) => void` | — | 内容变更回调，参数为最新 HTML |
 | `onEditorReady` | `(editor: Editor) => void` | — | 编辑器实例就绪后回调，参数为底层 TipTap Editor 实例 |
 
@@ -256,6 +263,7 @@ window.sEditorConfig = {
 | `focus` | `() => void` | 聚焦编辑器 |
 | `blur` | `() => void` | 移除焦点 |
 | `insertImage` | `(src: string, opts?: { alt?: string; width?: number \| string }) => void` | 在光标处插入图片 |
+| `insertFile` | `(src: string, opts?: { name?: string; download?: boolean }) => void` | 在光标处插入文件下载链接（`download` 默认 `true`，插入带 `download` 属性的 `<a>`） |
 | `exec` | `(command: string, payload?: unknown) => void` | 执行命令（详见 [五](#五命令系统)） |
 | `getEditor` | `() => Editor \| null` | 获取底层 TipTap Editor 实例（销毁后返回 null） |
 | `destroy` | `() => void` | 销毁实例，释放 TipTap 与事件监听 |
@@ -274,6 +282,10 @@ editor.setText('纯文本');
 // 插入图片
 editor.insertImage('https://example.com/a.png', { alt: '示例', width: 400 });
 editor.insertImage('https://example.com/b.png', { width: '100%' });
+
+// 插入文件下载链接
+editor.insertFile('https://example.com/report.pdf', { name: '月度报告.pdf' });
+editor.insertFile('https://example.com/page.html', { name: '页面', download: false });
 
 // 聚焦 / 失焦
 editor.focus();
@@ -324,6 +336,9 @@ editor.exec('link', { href: 'https://example.com', target: '_blank' });
 // 插入图片
 editor.exec('image', { src: 'https://example.com/a.png', alt: '图', width: 400 });
 
+// 插入文件下载链接
+editor.exec('file', { src: 'https://example.com/doc.pdf', name: '文档.pdf' });
+
 // 插入特殊字符
 editor.exec('specialChar', '★');
 ```
@@ -359,6 +374,7 @@ editor.exec('specialChar', '★');
 | `horizontalRule` | — | 插入分割线 |
 | `link` | `{ href: string; target?: '_blank' \| '_self' }` | 设置/取消链接（`href` 为空时取消） |
 | `image` | `{ src: string; alt?: string; width?: number \| string }` | 插入图片 |
+| `file` | `{ src: string; name?: string; download?: boolean }` | 插入文件下载链接。`download` 默认 `true`，会为 `<a>` 添加 `download` 属性触发浏览器下载 |
 | `table` | `{ rows: number; cols: number; withHeader?: boolean }` | 插入表格 |
 | `specialChar` | `string` | 插入特殊字符或任意文本 |
 
@@ -414,13 +430,22 @@ TipTap Editor 完整事件列表（常用）：
 
 ---
 
-## 七、图片上传自定义
+## 七、图片与文件上传
 
-默认情况下，图片对话框只支持「网络图片」URL 输入。如果需要本地上传，传入 `imageUpload` 函数即可，对话框会自动出现「本地上传」Tab：
+sEditor 同时支持图片上传与通用文件上传：
+
+- **图片上传**：通过 `imageUpload` 函数实现，图片对话框会出现「本地上传」Tab，支持一次选择多张图片批量上传；
+- **文件上传**：通过 `fileUpload` 函数实现，工具栏新增「文件」按钮，上传后以带 `download` 属性的下载链接形式插入文档。
+
+### 7.1 多图上传
+
+传入 `imageUpload` 函数后，图片对话框会自动出现「本地上传」Tab。默认支持一次选择多张图片（`imageMultiUpload: true`）：
 
 ```js
 const editor = sEditor.create({
   target: '#editor',
+  imageMultiUpload: true,           // 默认开启，可显式关闭
+  imageMaxSize: 5 * 1024 * 1024,    // 5MB，单张图片大小上限
   imageUpload: async (file) => {
     // file 是用户选择的 File 对象
     const fd = new FormData();
@@ -440,71 +465,110 @@ const editor = sEditor.create({
 行为说明：
 
 - `imageUpload` 必须返回 `Promise<string>`，resolve 值为图片 URL；
-- 上传成功后对话框自动切回 URL Tab 并填入返回的 URL，用户可继续设置 alt / 宽度 / 对齐；
-- 上传过程中对话框底部会显示「上传中…」；失败时显示具体错误信息；
-- 上传完成后并不会立即插入，需用户点「确定」按钮才会插入到文档中。
+- **单图上传**（只选一张）：上传成功后对话框自动切回 URL Tab 并填入返回的 URL，用户可继续设置 alt / 宽度 / 对齐，点「确定」后才插入；
+- **多图上传**（一次选多张）：逐张上传，全部成功后批量插入到文档中——每张图独立成段，并按当前选择的对齐方式排列，对话框自动关闭；
+- 上传过程中对话框底部会显示「上传中… (i/N)」；失败时显示具体错误信息；
+- 文件类型与大小在前端会先做校验，超限或非图片的文件会被跳过并提示，不影响其他图片上传。
 
-### 7.1 接口协议
+### 7.2 文件上传（下载链接）
 
-后端接口需满足以下约定（所有后端模板均遵循此协议）：
+传入 `fileUpload` 函数后，工具栏会显示「文件」按钮。点击后弹出文件选择框，选择任意非黑名单文件后上传，文档中会插入形如 `<a href="..." download>文件名</a>` 的下载链接。
 
-| 项 | 说明 |
-| --- | --- |
-| 请求方法 | `POST` |
-| Content-Type | `multipart/form-data` |
-| 表单字段 | `file`（图片文件，**字段名必须为 `file`**） |
-| 鉴权头 | `Authorization: Bearer <token>`（可选，视后端配置而定） |
-| 成功响应 | `200 { "url": "https://your-domain/uploads/xxx.png" }` |
-| 失败响应 | `4xx / 5xx { "error": "错误描述" }` |
+```js
+const editor = sEditor.create({
+  target: '#editor',
+  fileMaxSize: 20 * 1024 * 1024,    // 20MB
+  fileAllowedExts: null,            // null 表示不限制（仍受后端黑名单约束）
+  fileUpload: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/upload-file', {
+      method: 'POST',
+      body: fd,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) throw new Error(json.error || '上传失败');
+    return json.url;
+  },
+});
+```
+
+行为说明：
+
+- `fileUpload` 必须返回 `Promise<string>`，resolve 值为文件可访问 URL；
+- 上传成功后插入 `<a href="返回的URL" target="_blank" download>原始文件名</a>`，浏览器默认会触发下载而非导航；
+- 若需插入不强制下载的链接（仅在新标签页打开），可调用 `editor.insertFile(src, { name, download: false })`；
+- 默认 `fileAllowedExts: null` 不做扩展名白名单，但后端模板内置黑名单会拒绝 `.html / .svg / .js / .exe / .php` 等可执行/脚本/HTML 类型；
+- 工具栏「文件」按钮触发对话框；如需在代码中直接插入，使用 `editor.insertFile(src, opts)` 或 `editor.exec('file', { src, name, download })`。
+
+> 安全提示：上传的文件类型应由后端做最终白名单/黑名单校验，前端校验仅为体验优化。生产环境建议只允许业务所需的特定扩展名（如 `.pdf / .docx / .xlsx / .zip`），并配合病毒扫描服务。
+
+### 7.3 接口协议
+
+后端接口需满足以下约定（所有后端模板均遵循此协议）。图片接口与文件接口字段一致，差异仅在响应字段与扩展名校验策略：
+
+| 项 | 图片接口 `/api/upload` | 文件接口 `/api/upload-file` |
+| --- | --- | --- |
+| 请求方法 | `POST` | `POST` |
+| Content-Type | `multipart/form-data` | `multipart/form-data` |
+| 表单字段 | `file`（**字段名必须为 `file`**） | `file`（同左） |
+| 鉴权头 | `Authorization: Bearer <token>`（可选） | 同左 |
+| 成功响应 | `200 { "url": "https://.../xxx.png" }` | `200 { "url": "https://.../xxx.pdf", "name": "原始文件名.pdf" }` |
+| 失败响应 | `4xx / 5xx { "error": "错误描述" }` | 同左 |
+| 默认大小上限 | 5MB（`MAX_SIZE` 环境变量） | 20MB（`FILE_MAX_SIZE` 环境变量） |
+| 扩展名校验 | 白名单：jpg/png/gif/webp | 黑名单：拒绝 .html/.svg/.js/.exe/.php 等 24 类危险文件 |
 
 **响应字段说明**：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `url` | `string` | 成功时必填 | 图片可访问的完整 URL（必须包含协议与域名，前端会原样写入 `<img src>`） |
+| `url` | `string` | 成功时必填 | 文件可访问的完整 URL（必须包含协议与域名，前端会原样写入 `src` / `href`） |
+| `name` | `string` | 文件接口成功时必填 | 原始文件名，用于展示在下载链接文本中 |
 | `error` | `string` | 失败时必填 | 错误描述，会展示在对话框底部 |
 
 **前端已有校验**（无需后端重复，但建议后端二次校验以防绕过）：
 
-- 文件类型：仅 `image/*` MIME 类型
-- 文件大小：默认 5MB，可通过 `imageMaxSize` 配置（字节数）
+- 图片接口：仅 `image/*` MIME 类型 + `imageMaxSize` 大小限制
+- 文件接口：`fileMaxSize` 大小限制 + 可选 `fileAllowedExts` 扩展名白名单
 
 **后端应做的校验**：
 
 - 文件大小上限（防超大文件 DoS）
-- 扩展名白名单（建议 jpg/png/gif/webp，**SVG 可内嵌脚本导致 XSS，不建议支持**）
-- magic bytes 文件头校验（防伪造扩展名）
+- 图片用扩展名白名单（建议 jpg/png/gif/webp，**SVG 可内嵌脚本导致 XSS，不建议支持**）
+- 通用文件用扩展名黑名单（拒绝 .html/.svg/.js/.exe/.php 等可执行/脚本/HTML 类型）
+- 图片接口建议做 magic bytes 文件头校验（防伪造扩展名）
 - 随机文件名（防路径遍历与覆盖）
 - 速率限制（防刷接口）
 - 鉴权（防匿名滥用）
 
-### 7.2 后端模板（仅用于测试）
+### 7.4 后端模板（仅用于测试）
 
-> ⚠️ **风险提示**：`server-templates/` 下的所有后端模板**仅用于本地开发与功能联调，不能直接用于正式环境**。虽然已包含基础安全措施（类型白名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单、安全响应头），但仍存在以下限制：
+> ⚠️ **风险提示**：`server-templates/` 下的所有后端模板**仅用于本地开发与功能联调，不能直接用于正式环境**。虽然已包含基础安全措施（类型白名单/黑名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单、安全响应头），但仍存在以下限制：
 > - 内存级速率限制（多实例部署失效）
 > - 本地磁盘存储（无水平扩展能力、无冗余）
 > - 无文件清理机制（磁盘会持续增长）
 > - 静态 Bearer Token（非短期 JWT / OAuth2）
 > - 无图片处理（压缩/水印/缩略图）
+> - 无病毒扫描（通用文件上传尤其需要）
 > - 无监控、告警、日志归档
 >
 > 正式环境请使用对象存储（OSS / COS / S3）+ CDN，或自行实现符合公司安全规范的上传服务。完整说明见 [server-templates/README.md](./server-templates/README.md)。
 
-项目 `server-templates/` 目录提供了常见后端语言的上传接口模板：
+项目 `server-templates/` 目录提供了常见后端语言的上传接口模板，**同时实现图片接口与文件接口**：
 
-| 语言 / 框架 | 路径 | 依赖 | 默认端口 |
-| --- | --- | --- | --- |
-| Node.js (Express) | `server-templates/node-express/upload-server.js` | express、multer、cors | 3000 |
-| Python (Flask) | `server-templates/python-flask/app.py` | Flask、flask-cors | 5000 |
-| Java (Spring Boot) | `server-templates/java-springboot/UploadController.java` + `application.yml` | spring-boot-starter-web | 8080 |
-| PHP（原生） | `server-templates/php/upload.php` + `uploads/.htaccess` | 零依赖 | 任意 |
-| Go (Gin) | `server-templates/go-gin/main.go` | gin、google/uuid | 8080 |
+| 语言 / 框架 | 路径 | 图片接口 | 文件接口 | 默认端口 |
+| --- | --- | --- | --- | --- |
+| Node.js (Express) | `server-templates/node-express/upload-server.js` | `POST /api/upload` | `POST /api/upload-file` | 3000 |
+| Python (Flask) | `server-templates/python-flask/app.py` | `POST /api/upload` | `POST /api/upload-file` | 5000 |
+| Java (Spring Boot) | `server-templates/java-springboot/UploadController.java` | `POST /api/upload` | `POST /api/upload-file` | 8080 |
+| PHP（原生） | `server-templates/php/upload.php` + `upload-file.php` | `POST /api/upload.php` | `POST /api/upload-file.php` | 任意 |
+| Go (Gin) | `server-templates/go-gin/main.go` | `POST /api/upload` | `POST /api/upload-file` | 8080 |
 
 所有模板统一实现以下安全特性：
 
-- 图片类型白名单（jpg / png / gif / webp，**不含 SVG**）
-- magic bytes 文件头校验（防伪造扩展名）
-- 文件大小限制（默认 5MB，可通过 `MAX_SIZE` 环境变量配置）
+- 图片类型白名单（jpg / png / gif / webp，**不含 SVG**）+ magic bytes 校验
+- 通用文件扩展名黑名单（拒绝 .html / .svg / .js / .exe / .php 等 24 类危险文件）
+- 文件大小限制（图片 5MB / 文件 20MB，可通过 `MAX_SIZE` / `FILE_MAX_SIZE` 环境变量配置）
 - 随机文件名（防路径遍历与覆盖）
 - CORS 白名单（`CORS_ORIGIN` 环境变量）
 - Bearer Token 鉴权（`UPLOAD_TOKEN` 环境变量，留空则不鉴权）
@@ -513,34 +577,52 @@ const editor = sEditor.create({
 - 结构化日志（记录 IP / 文件名 / 大小 / 状态）
 - 临时文件策略（先写 `tmp_*` 临时文件，校验通过后原子重命名）
 
-### 7.3 示例：接入 Node.js 后端
+### 7.5 示例：接入 Node.js 后端
 
 ```bash
 # 启动后端（仅用于本地测试）
 cd server-templates/node-express
 pnpm add express multer cors
-node upload-server.js    # 监听 3000 端口
+node upload-server.js    # 监听 3000 端口，同时提供 /api/upload 与 /api/upload-file
 
 # 可选：配置鉴权 token
 UPLOAD_TOKEN=your-secret-token node upload-server.js
 ```
 
 ```js
+const BACKEND = 'http://localhost:3000';
+const TOKEN = 'your-secret-token'; // 与后端 UPLOAD_TOKEN 一致，留空则不鉴权
+
 const editor = sEditor.create({
   target: '#editor',
-  imageMaxSize: 10 * 1024 * 1024, // 10MB
+  imageMaxSize: 10 * 1024 * 1024,    // 10MB
+  fileMaxSize: 20 * 1024 * 1024,     // 20MB
+
+  // 图片上传（支持多图）
   imageUpload: async (file) => {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch('http://localhost:3000/api/upload', {
+    const res = await fetch(`${BACKEND}/api/upload`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer your-secret-token' }, // 与后端 UPLOAD_TOKEN 一致
+      headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
       body: fd,
     });
     const json = await res.json();
-    if (!res.ok || !json.url) {
-      throw new Error(json.error || '上传失败');
-    }
+    if (!res.ok || !json.url) throw new Error(json.error || '上传失败');
+    return json.url;
+  },
+
+  // 文件上传（任意非黑名单文件）
+  fileUpload: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BACKEND}/api/upload-file`, {
+      method: 'POST',
+      headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
+      body: fd,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) throw new Error(json.error || '上传失败');
     return json.url;
   },
 });

@@ -1,5 +1,32 @@
 # 更新说明
 
+## [2.0.6] - 2026-07-19
+
+### 新增
+- **多图上传**：图片对话框「本地上传」Tab 支持一次选择多张图片（`imageMultiUpload` 默认 `true`），逐张上传后批量插入到文档中，每张图独立成段并按选定对齐方式排列。可通过 `imageMultiUpload: false` 关闭。
+- **文件上传**：新增独立的「文件」对话框与 `fileUpload` 配置项，将任意非黑名单文件作为带 `download` 属性的下载链接插入文档。新增配置项 `fileMaxSize`（默认 20MB）、`fileAllowedExts`（默认 `null` 不限制）。
+- **`insertFile` API**：实例新增 `insertFile(src, opts?)` 方法，`opts.download` 默认 `true`，可传 `false` 插入不强制下载的链接。
+- **`file` 命令**：`exec('file', { src, name, download })` 路由到命令注册表，可编程式插入下载链接。
+- **`DownloadableLink` 扩展**：扩展 TipTap Link 增加 `download` 属性的 `parseHTML`/`renderHTML`，使 `<a download>` 可被正确序列化与反序列化（默认 Link 扩展会丢弃该属性）。
+- **工具栏「文件」按钮与 file 图标**：在插入组新增「文件」按钮，点击后弹出文件对话框。
+- **后端模板新增 `/api/upload-file` 接口**：5 种后端模板（Node.js / Python / Java / PHP / Go）均补充通用文件上传接口，统一扩展名黑名单（拒绝 .html/.svg/.js/.exe/.php 等 24 类危险文件）+ `FILE_MAX_SIZE`（默认 20MB）+ 响应 `{ url, name }`。PHP 新增独立的 `upload-file.php`。
+
+### 变更
+- `EditorConfig` 新增 `imageMultiUpload`、`fileUpload`、`fileMaxSize`、`fileAllowedExts` 字段。
+- `DialogType` 联合类型增加 `"file"`。
+- `SEditor.exec` 优先路由到 `commandRegistry`（覆盖 `image`/`file`/`link`/`table`/`specialChar` 等自定义命令），未命中再回退 TipTap 原生命令。
+- 文档同步：`USAGE.md` 第七章重写为「图片与文件上传」，新增 7.1 多图上传、7.2 文件上传、7.3 接口协议（含图片/文件双接口对照）、7.4 后端模板、7.5 接入示例；`README.md` 特性列表与后端模板章节同步；`server-templates/README.md` 更新接口契约、模板清单、环境变量（新增 `FILE_MAX_SIZE`）、安全特性（新增文件扩展名黑名单）、Nginx `client_max_body_size` 调整为 21m、已知限制新增「无病毒扫描」。
+- Java `application.yml`：`spring.servlet.multipart.max-file-size` 由 5MB 调整为 20MB 以支持文件接口；新增 `upload.file-max-size` 配置项。
+
+### 测试
+- `smoke.test.ts` 新增 4 个测试用例：
+  - `insertFile 应插入文件下载链接`（校验 href、文件名、download 属性）
+  - `insertFile download:false 不带 download 属性`
+  - `exec('file', ...) 应通过 commandRegistry 路由生效`
+  - `多次 insertImage 模拟批量插入应全部生效`（多图上传回归）
+
+---
+
 ## [2.0.5] - 2026-07-19
 
 ### 文档

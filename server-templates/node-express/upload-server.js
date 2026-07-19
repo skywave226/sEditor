@@ -54,6 +54,20 @@ const EXT_BY_MIME = {
   "image/webp": ".webp",
 };
 
+// —— 文件上传（非图片，作为下载链接插入） ——
+// 文件扩展名黑名单：禁止可执行/脚本/HTML 等危险类型
+const FILE_EXT_BLACKLIST = new Set([
+  ".html", ".htm", ".xhtml", ".svg", ".xml",
+  ".js", ".mjs", ".ts", ".jsx", ".tsx",
+  ".exe", ".bat", ".cmd", ".sh", ".ps1", ".msi",
+  ".php", ".jsp", ".asp", ".aspx",
+  ".jar", ".war", ".class",
+  ".py", ".rb", ".pl",
+  // 不允许直接上传代码/配置
+  ".env", ".config", ".ini",
+]);
+const FILE_MAX_SIZE = Number(process.env.FILE_MAX_SIZE) || 20 * 1024 * 1024; // 20MB
+
 // 鉴权中间件（UPLOAD_TOKEN 为空时跳过，仅用于开发）
 function auth(req, res, next) {
   if (!UPLOAD_TOKEN) return next();
@@ -125,6 +139,19 @@ const upload = multer({
   },
 });
 
+// 文件上传专用 multer：放宽大小到 FILE_MAX_SIZE，不做 MIME 白名单（用扩展名黑名单代替）
+const fileUpload = multer({
+  storage: tmpStorage,
+  limits: { fileSize: FILE_MAX_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    if (FILE_EXT_BLACKLIST.has(ext)) {
+      return cb(new Error(`不允许上传 ${ext} 类型的文件`));
+    }
+    cb(null, true);
+  },
+});
+
 // 简单结构化日志
 function log(level, msg, fields) {
   const line = JSON.stringify({ ts: new Date().toISOString(), level, msg, ...fields });
@@ -171,6 +198,49 @@ app.post("/api/upload", rateLimit, auth, (req, res) => {
     const url = `${PUBLIC_BASE}/${finalName}`;
     log("info", "upload ok", { ip, file: finalName, size: req.file.size });
     res.json({ url });
+  });
+});
+
+// 文件上传接口：POST /api/upload-file
+// 用于 sEditor 的「文件」功能（插入下载链接，非图片）
+// 请求：multipart/form-data，字段名 file
+// 鉴权：Authorization: Bearer <UPLOAD_TOKEN>（若配置了 UPLOAD_TOKEN）
+// 成功响应：{ url: "https://.../xxx.pdf", name: "原始文件名.pdf" }
+// 失败响应：{ error: "错误信息" }
+app.post("/api/upload-file", rateLimit, auth, (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  fileUpload.single("file")(req, res, (err) => {
+    if (err) {
+      log("warn", "upload-file rejected", { ip, reason: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "未接收到文件" });
+    }
+
+    const originalName = req.file.originalname || "file";
+    const ext = path.extname(originalName).toLowerCase();
+
+    // 重命名为随机文件名（保留原扩展名）
+    const finalName = crypto.randomBytes(16).toString("hex") + ext;
+    const finalPath = path.join(UPLOAD_DIR, finalName);
+
+    try {
+      fs.renameSync(req.file.path, finalPath);
+    } catch (e) {
+      log("error", "rename failed", { ip, err: String(e) });
+      fs.unlink(req.file.path, () => {});
+      return res.status(500).json({ error: "服务器内部错误，请稍后重试" });
+    }
+
+    const url = `${PUBLIC_BASE}/${finalName}`;
+    log("info", "upload-file ok", {
+      ip,
+      file: finalName,
+      originalName,
+      size: req.file.size,
+    });
+    res.json({ url, name: originalName });
   });
 });
 

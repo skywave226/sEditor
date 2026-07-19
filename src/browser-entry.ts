@@ -14,6 +14,7 @@ export interface SEditorInstance {
   focus(): void;
   blur(): void;
   insertImage(src: string, opts?: { alt?: string; width?: number | string }): void;
+  insertFile(src: string, opts?: { name?: string; download?: boolean }): void;
   exec(command: string, payload?: unknown): void;
   destroy(): void;
   getEditor(): Editor | null;
@@ -37,6 +38,7 @@ export function create(options: SEditorOptions): SEditorInstance {
     focus: () => editor.focus(),
     blur: () => editor.blur(),
     insertImage: (src, opts) => editor.insertImage(src, opts),
+    insertFile: (src, opts) => editor.insertFile(src, opts),
     exec: (command, payload) => editor.exec(command, payload),
     destroy: () => {
       editor.destroy();

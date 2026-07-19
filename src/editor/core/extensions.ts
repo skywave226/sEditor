@@ -17,6 +17,30 @@ import { FontSize } from "./fontSize";
 import { LineHeight } from "./lineHeight";
 import { Indent } from "./indent";
 
+/**
+ * 扩展 Link：增加 download 属性，用于文件下载链接。
+ * 默认 Link 扩展只保留 href/target/rel/title，会丢弃 download。
+ */
+const DownloadableLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      download: {
+        default: null,
+        parseHTML: (el) => {
+          const v = (el as HTMLAnchorElement).getAttribute("download");
+          return v === null ? null : v || "";
+        },
+        renderHTML: (attrs) => {
+          // null 表示无 download 属性；空字符串与任意非空字符串都渲染为 download 属性
+          if (attrs.download === null || attrs.download === undefined) return {};
+          return { download: attrs.download };
+        },
+      },
+    };
+  },
+});
+
 export function buildExtensions(placeholder?: string): Extensions {
   return [
     StarterKit.configure({
@@ -34,7 +58,7 @@ export function buildExtensions(placeholder?: string): Extensions {
     FontSize,
     LineHeight,
     Indent,
-    Link.configure({
+    DownloadableLink.configure({
       openOnClick: false,
       autolink: true,
       // 协议白名单：拦截 javascript:、data: 等危险协议，避免存储型 XSS
