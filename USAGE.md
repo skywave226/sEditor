@@ -452,40 +452,77 @@ const editor = sEditor.create({
 | --- | --- |
 | 请求方法 | `POST` |
 | Content-Type | `multipart/form-data` |
-| 表单字段 | `file`（图片文件） |
-| 成功响应 | `{ "url": "https://your-domain/uploads/xxx.png" }` |
-| 失败响应 | `{ "error": "错误描述" }`，HTTP 状态码 `4xx` / `5xx` |
+| 表单字段 | `file`（图片文件，**字段名必须为 `file`**） |
+| 鉴权头 | `Authorization: Bearer <token>`（可选，视后端配置而定） |
+| 成功响应 | `200 { "url": "https://your-domain/uploads/xxx.png" }` |
+| 失败响应 | `4xx / 5xx { "error": "错误描述" }` |
 
-前端已有校验：
+**响应字段说明**：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `url` | `string` | 成功时必填 | 图片可访问的完整 URL（必须包含协议与域名，前端会原样写入 `<img src>`） |
+| `error` | `string` | 失败时必填 | 错误描述，会展示在对话框底部 |
+
+**前端已有校验**（无需后端重复，但建议后端二次校验以防绕过）：
+
 - 文件类型：仅 `image/*` MIME 类型
 - 文件大小：默认 5MB，可通过 `imageMaxSize` 配置（字节数）
 
-### 7.2 后端模板
+**后端应做的校验**：
 
-项目 `server-templates/` 目录提供了常见后端语言的上传接口模板，开箱即用：
-
-| 语言 / 框架 | 路径 | 依赖 |
-| --- | --- | --- |
-| Node.js (Express) | `server-templates/node-express/upload-server.js` | express、multer、cors |
-| Python (Flask) | `server-templates/python-flask/app.py` | Flask、flask-cors |
-| Java (Spring Boot) | `server-templates/java-springboot/UploadController.java` | spring-boot-starter-web |
-| PHP (原生) | `server-templates/php/upload.php` | 零依赖 |
-| Go (Gin) | `server-templates/go-gin/main.go` | gin、google/uuid |
-
-每个模板均包含：
-- 图片类型白名单（jpg / png / gif / webp / svg）
-- 文件大小限制（默认 5MB）
+- 文件大小上限（防超大文件 DoS）
+- 扩展名白名单（建议 jpg/png/gif/webp，**SVG 可内嵌脚本导致 XSS，不建议支持**）
+- magic bytes 文件头校验（防伪造扩展名）
 - 随机文件名（防路径遍历与覆盖）
-- CORS 跨域支持
-- 静态资源访问
+- 速率限制（防刷接口）
+- 鉴权（防匿名滥用）
+
+### 7.2 后端模板（仅用于测试）
+
+> ⚠️ **风险提示**：`server-templates/` 下的所有后端模板**仅用于本地开发与功能联调，不能直接用于正式环境**。虽然已包含基础安全措施（类型白名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单、安全响应头），但仍存在以下限制：
+> - 内存级速率限制（多实例部署失效）
+> - 本地磁盘存储（无水平扩展能力、无冗余）
+> - 无文件清理机制（磁盘会持续增长）
+> - 静态 Bearer Token（非短期 JWT / OAuth2）
+> - 无图片处理（压缩/水印/缩略图）
+> - 无监控、告警、日志归档
+>
+> 正式环境请使用对象存储（OSS / COS / S3）+ CDN，或自行实现符合公司安全规范的上传服务。完整说明见 [server-templates/README.md](./server-templates/README.md)。
+
+项目 `server-templates/` 目录提供了常见后端语言的上传接口模板：
+
+| 语言 / 框架 | 路径 | 依赖 | 默认端口 |
+| --- | --- | --- | --- |
+| Node.js (Express) | `server-templates/node-express/upload-server.js` | express、multer、cors | 3000 |
+| Python (Flask) | `server-templates/python-flask/app.py` | Flask、flask-cors | 5000 |
+| Java (Spring Boot) | `server-templates/java-springboot/UploadController.java` + `application.yml` | spring-boot-starter-web | 8080 |
+| PHP（原生） | `server-templates/php/upload.php` + `uploads/.htaccess` | 零依赖 | 任意 |
+| Go (Gin) | `server-templates/go-gin/main.go` | gin、google/uuid | 8080 |
+
+所有模板统一实现以下安全特性：
+
+- 图片类型白名单（jpg / png / gif / webp，**不含 SVG**）
+- magic bytes 文件头校验（防伪造扩展名）
+- 文件大小限制（默认 5MB，可通过 `MAX_SIZE` 环境变量配置）
+- 随机文件名（防路径遍历与覆盖）
+- CORS 白名单（`CORS_ORIGIN` 环境变量）
+- Bearer Token 鉴权（`UPLOAD_TOKEN` 环境变量，留空则不鉴权）
+- 速率限制（`RATE_LIMIT` 环境变量，默认 10 次/分钟）
+- 安全响应头（`X-Content-Type-Options` / `Content-Security-Policy` / `X-Frame-Options`）
+- 结构化日志（记录 IP / 文件名 / 大小 / 状态）
+- 临时文件策略（先写 `tmp_*` 临时文件，校验通过后原子重命名）
 
 ### 7.3 示例：接入 Node.js 后端
 
 ```bash
-# 启动后端
+# 启动后端（仅用于本地测试）
 cd server-templates/node-express
 pnpm add express multer cors
 node upload-server.js    # 监听 3000 端口
+
+# 可选：配置鉴权 token
+UPLOAD_TOKEN=your-secret-token node upload-server.js
 ```
 
 ```js
@@ -497,6 +534,7 @@ const editor = sEditor.create({
     fd.append('file', file);
     const res = await fetch('http://localhost:3000/api/upload', {
       method: 'POST',
+      headers: { Authorization: 'Bearer your-secret-token' }, // 与后端 UPLOAD_TOKEN 一致
       body: fd,
     });
     const json = await res.json();

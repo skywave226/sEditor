@@ -253,6 +253,20 @@ export class SEditorComponent implements AfterViewInit, OnDestroy {
 - Tailwind CSS 3（`se-` 命名空间，仅构建时使用，运行时无依赖）
 - **无 React / Vue / Angular / Zustand 等框架**
 
+## 后端接口模板（仅用于测试）
+
+项目在 `server-templates/` 目录提供了 5 种常见后端语言的图片上传接口模板（Node.js / Python / Java / PHP / Go），**仅用于本地开发与功能联调，不能直接用于正式环境**。
+
+> ⚠️ **风险提示**：这些模板虽然已包含类型白名单、magic bytes 校验、速率限制、Bearer Token 鉴权、CORS 白名单等基础安全措施，但仍存在以下限制，**不能等同于生产级服务**：
+> - 内存级速率限制（多实例部署失效）
+> - 本地磁盘存储（无水平扩展能力、无冗余）
+> - 无文件清理机制（磁盘会持续增长）
+> - 静态 Bearer Token（非短期 JWT / OAuth2）
+> - 无图片处理（压缩/水印/缩略图）
+> - 无监控、告警、日志归档
+
+正式环境请使用对象存储（OSS / COS / S3）+ CDN，或自行实现符合公司安全规范的上传服务。完整说明见 [server-templates/README.md](./server-templates/README.md)。
+
 ## 架构说明
 
 - `src/seditor/SEditor.ts` — 主类，整合 TipTap Editor 与所有 UI
