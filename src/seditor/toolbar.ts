@@ -32,8 +32,13 @@ interface ToolbarItemConfig {
 
 const toolbarGroups: ToolbarItemConfig[][] = [
   [
-    { type: "button", id: "undo", label: "撤销", command: "undo", icon: "undo" },
-    { type: "button", id: "redo", label: "重做", command: "redo", icon: "redo" },
+    { type: "button", id: "undo", label: "撤销 (Ctrl+Z)", command: "undo", icon: "undo" },
+    { type: "button", id: "redo", label: "重做 (Ctrl+Y)", command: "redo", icon: "redo" },
+  ],
+  [
+    { type: "button", id: "copy", label: "复制 (Ctrl+C)", command: "copy", icon: "copy" },
+    { type: "button", id: "cut", label: "剪切 (Ctrl+X)", command: "cut", icon: "scissors" },
+    { type: "button", id: "paste", label: "粘贴 (Ctrl+V)", command: "paste", icon: "clipboardPaste" },
   ],
   [{ type: "dropdown", id: "heading", dropdown: "heading", label: "段落格式", width: 120 }],
   [
@@ -41,46 +46,46 @@ const toolbarGroups: ToolbarItemConfig[][] = [
     { type: "dropdown", id: "fontSize", dropdown: "fontSize", label: "字号", width: 72 },
   ],
   [
-    { type: "button", id: "bold", label: "加粗", command: "bold", icon: "bold" },
-    { type: "button", id: "italic", label: "斜体", command: "italic", icon: "italic" },
-    { type: "button", id: "underline", label: "下划线", command: "underline", icon: "underline" },
-    { type: "button", id: "strike", label: "删除线", command: "strike", icon: "strike" },
+    { type: "button", id: "bold", label: "加粗 (Ctrl+B)", command: "bold", icon: "bold" },
+    { type: "button", id: "italic", label: "斜体 (Ctrl+I)", command: "italic", icon: "italic" },
+    { type: "button", id: "underline", label: "下划线 (Ctrl+U)", command: "underline", icon: "underline" },
+    { type: "button", id: "strike", label: "删除线 (Ctrl+Shift+X)", command: "strike", icon: "strike" },
   ],
   [
     { type: "dropdown", id: "color", dropdown: "color", label: "文字颜色", width: 36 },
     { type: "dropdown", id: "highlight", dropdown: "highlight", label: "背景色", width: 36 },
   ],
   [
-    { type: "button", id: "alignLeft", label: "左对齐", command: "alignLeft", icon: "alignLeft" },
-    { type: "button", id: "alignCenter", label: "居中", command: "alignCenter", icon: "alignCenter" },
-    { type: "button", id: "alignRight", label: "右对齐", command: "alignRight", icon: "alignRight" },
-    { type: "button", id: "alignJustify", label: "两端对齐", command: "alignJustify", icon: "alignJustify" },
+    { type: "button", id: "alignLeft", label: "左对齐 (Ctrl+Shift+L)", command: "alignLeft", icon: "alignLeft" },
+    { type: "button", id: "alignCenter", label: "居中 (Ctrl+Shift+E)", command: "alignCenter", icon: "alignCenter" },
+    { type: "button", id: "alignRight", label: "右对齐 (Ctrl+Shift+R)", command: "alignRight", icon: "alignRight" },
+    { type: "button", id: "alignJustify", label: "两端对齐 (Ctrl+Shift+J)", command: "alignJustify", icon: "alignJustify" },
   ],
   [
-    { type: "button", id: "bulletList", label: "无序列表", command: "bulletList", icon: "list" },
-    { type: "button", id: "orderedList", label: "有序列表", command: "orderedList", icon: "listOrdered" },
+    { type: "button", id: "bulletList", label: "无序列表 (Ctrl+Shift+8)", command: "bulletList", icon: "list" },
+    { type: "button", id: "orderedList", label: "有序列表 (Ctrl+Shift+7)", command: "orderedList", icon: "listOrdered" },
   ],
   [
-    { type: "button", id: "indent", label: "增加缩进", command: "indent", icon: "indentIncrease" },
-    { type: "button", id: "outdent", label: "减少缩进", command: "outdent", icon: "indentDecrease" },
+    { type: "button", id: "indent", label: "增加缩进 (Tab)", command: "indent", icon: "indentIncrease" },
+    { type: "button", id: "outdent", label: "减少缩进 (Shift+Tab)", command: "outdent", icon: "indentDecrease" },
   ],
   [{ type: "dropdown", id: "lineHeight", dropdown: "lineHeight", label: "行距", width: 72 }],
   [
-    { type: "button", id: "blockquote", label: "引用", command: "blockquote", icon: "quote" },
-    { type: "button", id: "codeBlock", label: "代码块", command: "codeBlock", icon: "code2" },
+    { type: "button", id: "blockquote", label: "引用 (Ctrl+Shift+B)", command: "blockquote", icon: "quote" },
+    { type: "button", id: "codeBlock", label: "代码块 (Ctrl+Alt+C)", command: "codeBlock", icon: "code2" },
   ],
   [
-    { type: "button", id: "link", label: "超链接", command: "link", icon: "link" },
+    { type: "button", id: "link", label: "超链接 (Ctrl+K)", command: "link", icon: "link" },
     { type: "button", id: "image", label: "图片", command: "image", icon: "image" },
     { type: "button", id: "file", label: "文件", command: "file", icon: "file" },
     { type: "button", id: "table", label: "表格", command: "table", icon: "table" },
-    { type: "button", id: "horizontalRule", label: "分割线", command: "horizontalRule", icon: "minus" },
+    { type: "button", id: "horizontalRule", label: "分割线 (---)", command: "horizontalRule", icon: "minus" },
     { type: "button", id: "specialChar", label: "特殊字符", command: "specialChar", icon: "caseSensitive" },
   ],
-  [{ type: "button", id: "removeFormat", label: "清除格式", command: "removeFormat", icon: "eraser" }],
+  [{ type: "button", id: "removeFormat", label: "清除格式 (Ctrl+\\)", command: "removeFormat", icon: "eraser" }],
   [
     { type: "button", id: "sourceToggle", label: "源码", command: "__source__", icon: "code", variant: "toggle" },
-    { type: "button", id: "fullscreenToggle", label: "全屏", command: "__fullscreen__", icon: "maximize", variant: "toggle" },
+    { type: "button", id: "fullscreenToggle", label: "全屏 (F11)", command: "__fullscreen__", icon: "maximize", variant: "toggle" },
   ],
 ];
 

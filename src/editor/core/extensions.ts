@@ -5,7 +5,6 @@ import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
@@ -16,6 +15,7 @@ import { FontFamily } from "./fontFamily";
 import { FontSize } from "./fontSize";
 import { LineHeight } from "./lineHeight";
 import { Indent } from "./indent";
+import { ResizableImage } from "./resizable-image";
 
 /**
  * 扩展 Link：增加 download 属性，用于文件下载链接。
@@ -67,7 +67,8 @@ export function buildExtensions(placeholder?: string): Extensions {
     }),
     // inline: true 使图片作为内联节点存在于段落中，
     // 这样 setTextAlign(left/center/right) 才能通过段落对齐作用于图片。
-    Image.configure({ inline: true, allowBase64: true }),
+    // ResizableImage 自定义 NodeView 在图片右下角加拖拽手柄，可调整宽度。
+    ResizableImage.configure({ inline: true, allowBase64: true }),
     Placeholder.configure({
       placeholder: placeholder ?? "在此输入正文内容……",
       emptyEditorClass: "is-editor-empty",

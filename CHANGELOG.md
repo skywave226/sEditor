@@ -1,5 +1,26 @@
 # 更新说明
 
+## [2.1.0] - 2026-07-19
+
+### 新增
+- **复制/剪切/粘贴按钮**：工具栏新增剪贴板组（`copy`/`cut`/`paste` 三个按钮），基于 `navigator.clipboard` API 实现，并对老浏览器降级到 `document.execCommand`。
+- **图片拖拽调整大小**：新增 `ResizableImage` 扩展（替代默认 Image），通过自定义 NodeView 在图片右下角添加拖拽手柄，鼠标拖拽按宽度等比例缩放，结果写入 `node.attrs.width`。
+- **图片浮动工具栏**：图片 hover 时显示浮动对齐工具栏，提供「左对齐 / 居中 / 右对齐 / 删除」快捷操作。
+- **表格浮动工具栏**：新增 `TableBubble` 组件，光标进入表格时在表格上方显示工具栏，提供「上下插入行 / 左右插入列 / 删除行列 / 合并拆分单元格 / 切换表头行 / 删除表格」等操作。
+- **链接编辑浮层**：新增 `LinkBubble` 组件，光标位于链接中时在链接下方显示浮层，显示当前 URL（可点击打开），并提供「编辑」「取消链接」按钮。
+- **快捷键提示**：所有工具栏按钮的 `title` 都补充了对应的快捷键提示（如「加粗 (Ctrl+B)」「超链接 (Ctrl+K)」），便于发现快捷键。
+- **新增图标**：`copy` / `scissors` / `clipboardPaste` / `trash` / `rowTop` / `rowBottom` / `colLeft` / `colRight` / `merge` / `split` / `tableHeader` / `trashTable` / `edit` / `unlink`。
+
+### 变更
+- `buildExtensions` 中 `Image` 替换为 `ResizableImage`，保留 `inline: true` / `allowBase64: true` 配置。
+- `SEditor` 新增 `tableBubble` / `linkBubble` 成员，并在 `destroy()` 中清理。
+- 链接对话框通过 `window.dispatchEvent(new CustomEvent("seditor:open-link-dialog"))` 由 `LinkBubble` 触发，由 `SEditor` 监听后调 `store.openDialog("link")`。
+
+### 测试
+- `pnpm check` 0 错误（strict）；`pnpm test` 15/15 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 429.08 kB / sEditor.esm.js 639.92 kB）。
+
+---
+
 ## [2.0.6] - 2026-07-19
 
 ### 新增

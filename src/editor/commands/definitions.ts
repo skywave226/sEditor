@@ -37,6 +37,43 @@ export const commandDefinitions: EditorCommand[] = [
   cmd("undo", () => false, (e) => e.can().undo(), (e) => e.chain().focus().undo().run()),
   cmd("redo", () => false, (e) => e.can().redo(), (e) => e.chain().focus().redo().run()),
 
+  // —— 剪贴板（基于 navigator.clipboard API）——
+  cmd("copy", () => false, (e) => !e.state.selection.empty, (e) => {
+    const { from, to } = e.state.selection;
+    const text = e.state.doc.textBetween(from, to, "\n");
+    // 异步写入剪贴板；失败时回退到 document.execCommand
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {
+        try { document.execCommand("copy"); } catch { /* ignore */ }
+      });
+    } else {
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+    }
+  }),
+  cmd("cut", () => false, (e) => !e.state.selection.empty, (e) => {
+    const { from, to } = e.state.selection;
+    const text = e.state.doc.textBetween(from, to, "\n");
+    const doCut = () => e.chain().focus().deleteSelection().run();
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(doCut).catch(() => {
+        try { document.execCommand("cut"); } catch { doCut(); }
+      });
+    } else {
+      try { document.execCommand("cut"); } catch { doCut(); }
+    }
+  }),
+  cmd("paste", () => false, () => true, (e) => {
+    const doInsert = (text: string) => {
+      if (text) e.chain().focus().insertContent(text).run();
+    };
+    if (navigator.clipboard?.readText) {
+      navigator.clipboard.readText().then(doInsert).catch(() => {
+        // 读取失败（如权限被拒）：提示用户使用 Ctrl+V
+        // 此处不抛错，避免影响 UI
+      });
+    }
+  }),
+
   // —— 文字样式 ——
   cmd("bold", (e) => e.isActive("bold"), (e) => e.can().toggleBold(), (e) => e.chain().focus().toggleBold().run()),
   cmd("italic", (e) => e.isActive("italic"), (e) => e.can().toggleItalic(), (e) => e.chain().focus().toggleItalic().run()),

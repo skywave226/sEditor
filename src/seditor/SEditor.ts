@@ -11,6 +11,8 @@ import { DialogManager } from "./dialogs";
 import { ContextMenu } from "./context-menu";
 import { StatusBar } from "./status-bar";
 import { SourceView } from "./source-view";
+import { TableBubble } from "./table-bubble";
+import { LinkBubble } from "./link-bubble";
 
 export interface SEditorOptions extends EditorConfig {
   target: HTMLElement | string;
@@ -22,6 +24,8 @@ export class SEditor {
   private toolbar: Toolbar;
   private statusBar: StatusBar;
   private contextMenu: ContextMenu;
+  private tableBubble: TableBubble;
+  private linkBubble: LinkBubble;
   private dialogMgr: DialogManager;
   private sourceView: SourceView;
   private root: HTMLElement;
@@ -98,6 +102,15 @@ export class SEditor {
     };
     this.root.addEventListener("contextmenu", onCtx);
     this.cleanups.push(() => this.root.removeEventListener("contextmenu", onCtx));
+
+    // 表格浮动工具栏
+    this.tableBubble = new TableBubble(editor);
+
+    // 链接编辑浮层
+    this.linkBubble = new LinkBubble(editor);
+    const onOpenLinkDialog = (): void => this.store.openDialog("link");
+    window.addEventListener("seditor:open-link-dialog", onOpenLinkDialog);
+    this.cleanups.push(() => window.removeEventListener("seditor:open-link-dialog", onOpenLinkDialog));
 
     // 对话框管理
     this.dialogMgr = new DialogManager(editor, this.store, options);
@@ -219,6 +232,8 @@ export class SEditor {
     this.toolbar.destroy();
     this.statusBar.destroy();
     this.contextMenu.destroy();
+    this.tableBubble.destroy();
+    this.linkBubble.destroy();
     this.dialogMgr.destroy();
     this.sourceView.destroy();
     this.editor?.destroy();
