@@ -21,7 +21,7 @@ function buildDialogShell(opts: {
     className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/30",
   });
   const inner = h("div", {
-    className: "flex max-h-[90vh] flex-col overflow-hidden rounded-lg border border-se-border bg-white shadow-panel",
+    className: "flex max-h-[90vh] flex-col overflow-hidden rounded-lg border border-se-border bg-se-canvas shadow-panel",
   });
   (inner as HTMLElement).style.width = `${opts.width ?? 420}px`;
 

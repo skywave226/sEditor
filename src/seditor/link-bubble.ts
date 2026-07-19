@@ -28,7 +28,7 @@ export class LinkBubble {
   private build(): HTMLElement {
     const el = h("div", {
       className:
-        "fixed z-[150] flex max-w-[360px] items-center gap-1 rounded-md border border-se-border bg-white px-2 py-1.5 shadow-panel",
+        "fixed z-[150] flex max-w-[360px] items-center gap-1 rounded-md border border-se-border bg-se-canvas px-2 py-1.5 shadow-panel",
     });
     // URL 显示/打开
     const linkSpan = h("a", {

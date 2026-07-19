@@ -2,6 +2,23 @@ import type { Editor } from "@tiptap/core";
 import { h, onClickOutside, onEscape } from "./dom";
 import type { UIStore } from "./store";
 
+/** 兼容性兜底：通过临时 textarea 选中文本后执行 copy */
+function fallbackCopyToClipboard(text: string): void {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+  } catch {
+    /* ignore */
+  }
+  ta.remove();
+}
+
 export class ContextMenu {
   private editor: Editor;
   private store: UIStore;
@@ -41,11 +58,10 @@ export class ContextMenu {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // 兼容性兜底：execCommand 已废弃，但部分旧浏览器仍可用
-        document.execCommand("copy");
+        fallbackCopyToClipboard(text);
       }
     } catch {
-      // 权限被拒时静默失败，用户可使用 Ctrl+C
+      fallbackCopyToClipboard(text);
     }
   }
 
@@ -95,7 +111,7 @@ export class ContextMenu {
   open(x: number, y: number): void {
     this.close();
     const el = h("div", {
-      className: "fixed z-[200] min-w-[160px] rounded-md border border-se-border bg-white py-1 shadow-panel",
+      className: "fixed z-[200] min-w-[160px] rounded-md border border-se-border bg-se-canvas py-1 shadow-panel",
     });
     (el as HTMLElement).style.left = `${x}px`;
     (el as HTMLElement).style.top = `${y}px`;

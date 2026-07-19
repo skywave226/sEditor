@@ -16,7 +16,7 @@ function downloadBlob(filename: string, content: string, mime: string): void {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 

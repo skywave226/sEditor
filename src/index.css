@@ -51,6 +51,7 @@
   color: var(--se-ink);
 }
 .se-dark .bg-white { background-color: var(--se-canvas) !important; }
+.se-dark .bg-se-canvas { background-color: var(--se-canvas) !important; }
 .se-dark .bg-se-bar { background-color: var(--se-bar-bg) !important; }
 .se-dark .text-se-ink { color: var(--se-ink) !important; }
 .se-dark .text-se-sub { color: var(--se-sub) !important; }

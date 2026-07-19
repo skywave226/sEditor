@@ -179,8 +179,12 @@ export class SEditor {
       if (e.key === "Escape" && this.store.getState().isFullscreen) {
         this.store.setFullscreen(false);
       }
-      // Ctrl+F / Cmd+F 打开查找替换（仅在编辑器焦点内）
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      // Ctrl+F / Cmd+F 打开查找替换：仅在 ProseMirror 编辑区域获得焦点时触发，
+      // 避免拦截对话框内的输入框（如链接地址输入框）
+      const target = e.target as HTMLElement | null;
+      const viewDom = this.editor?.view.dom;
+      const isInsideEditor = !!target && !!viewDom && (viewDom === target || viewDom.contains(target));
+      if (isInsideEditor && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         this.store.openDialog("findReplace");
       }
@@ -202,15 +206,30 @@ export class SEditor {
     this.onEditorReadyRef?.(editor);
   }
 
-  /** 应用主题：light / dark */
+  /** 应用主题：light / dark / auto；auto 时监听系统主题变化 */
   private applyTheme(theme: "light" | "dark" | "auto"): void {
-    const isDark =
-      theme === "dark" ||
-      (theme === "auto" &&
-        typeof window.matchMedia === "function" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    if (isDark) this.root.classList.add("se-dark");
-    else this.root.classList.remove("se-dark");
+    const setDark = (v: boolean): void => {
+      if (v) this.root.classList.add("se-dark");
+      else this.root.classList.remove("se-dark");
+    };
+    if (theme === "dark") {
+      setDark(true);
+      return;
+    }
+    if (theme === "light") {
+      setDark(false);
+      return;
+    }
+    // auto：根据 prefers-color-scheme 动态切换
+    if (typeof window.matchMedia !== "function") {
+      setDark(false);
+      return;
+    }
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    setDark(mql.matches);
+    const onChange = (e: MediaQueryListEvent): void => setDark(e.matches);
+    mql.addEventListener("change", onChange);
+    this.cleanups.push(() => mql.removeEventListener("change", onChange));
   }
 
   /** 拦截粘贴：检测剪贴板中的图片文件，调用 imageUpload 自动上传并插入 */

@@ -1,5 +1,28 @@
 # 更新说明
 
+## [2.3.2] - 2026-07-19
+
+### 修复
+- **暗色主题下浮层/菜单背景仍为白色**（v2.3.0/v2.3.1 遗留）：多个组件直接使用 Tailwind `bg-white`，在 `.se-dark` 模式下不会随 CSS 变量变化。统一改为 `bg-se-canvas`：
+  - `Toolbar` 的 dropdown panel / 「更多」面板
+  - `SlashMenu` 命令面板
+  - `ContextMenu` 右键菜单
+  - `LinkBubble` 链接编辑浮层
+  - `TableBubble` 表格浮动工具栏
+  - `DialogManager` 对话框壳
+  - `SourceView` 源码编辑 textarea
+  - `src/index.css` 补充 `.se-dark .bg-se-canvas` 兜底规则。
+- **copy / cut 命令兼容性兜底无效**：`document.execCommand("copy")` / `document.execCommand("cut")` 在没有选中文本时不会复制内容。在 `src/editor/commands/definitions.ts` 和 `src/seditor/context-menu.ts` 中增加 `fallbackCopyToClipboard` 辅助函数，通过创建临时 textarea、选中文本后再执行 copy。
+- **导出下载 DOM 移除不安全**：`exporter.ts` 中 `downloadBlob` 使用 `document.body.removeChild(a)`，若 body 状态异常可能抛错；改为 `a.remove()`。
+- **theme: "auto" 不监听系统主题变化**：`SEditor.applyTheme` 仅在初始化时判断 `prefers-color-scheme`，切换到 auto 后不会跟随系统变化。改为 `matchMedia.addEventListener("change", ...)` 动态监听，并在 `destroy()` 中清理。
+- **Ctrl+F 全局拦截 root 内所有输入框**：`SEditor` 的 keydown 监听在 `root` 上，导致对话框内的链接地址输入框、查找替换输入框等按 Ctrl+F 时也被拦截。改为仅在 ProseMirror 编辑区域（`editor.view.dom`）获得焦点时才打开查找替换对话框。
+- **响应式工具栏 ResizeObserver loop 警告**：`Toolbar.setupResponsive` 同步调用 `relayout()` 触发布局变更，浏览器报 `ResizeObserver loop completed with undelivered notifications`。改为 `requestAnimationFrame` 延迟 relayout，并妥善清理 rafId。
+
+### 测试
+- `pnpm check` 0 错误；`pnpm test` 21/21 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 457.03 kB / sEditor.esm.js 677.73 kB）；`pnpm dev` 浏览器无错误/无 ResizeObserver 警告。
+
+---
+
 ## [2.3.1] - 2026-07-19
 
 ### 修复

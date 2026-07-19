@@ -193,7 +193,7 @@ export class Toolbar {
         return;
       }
       morePanel = h("div", {
-        className: "absolute right-0 top-9 z-50 rounded-md border border-se-border bg-white shadow-dropdown",
+        className: "absolute right-0 top-9 z-50 rounded-md border border-se-border bg-se-canvas shadow-dropdown",
       });
       morePanel.style.minWidth = "200px";
       const inner = h("div", { className: "py-1" });
@@ -371,7 +371,7 @@ export class Toolbar {
   ): HTMLElement | null {
     const kind = item.dropdown;
     const panel = h("div", {
-      className: "absolute left-0 top-9 z-50 rounded-md border border-se-border bg-white shadow-dropdown",
+      className: "absolute left-0 top-9 z-50 rounded-md border border-se-border bg-se-canvas shadow-dropdown",
     });
 
     if (kind === "heading") {

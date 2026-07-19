@@ -24,7 +24,7 @@ export class TableBubble {
   private build(): HTMLElement {
     const el = h("div", {
       className:
-        "fixed z-[150] flex items-center gap-0.5 rounded-md border border-se-border bg-white px-1 py-1 shadow-panel",
+        "fixed z-[150] flex items-center gap-0.5 rounded-md border border-se-border bg-se-canvas px-1 py-1 shadow-panel",
     });
     const addBtn = (
       title: string,

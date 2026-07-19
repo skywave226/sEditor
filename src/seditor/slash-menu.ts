@@ -91,7 +91,7 @@ export class SlashMenu {
       return;
     }
     this.el = h("div", {
-      className: "fixed z-[150] min-w-[260px] max-h-[320px] overflow-auto rounded-md border border-se-border bg-white shadow-panel",
+      className: "fixed z-[150] min-w-[260px] max-h-[320px] overflow-auto rounded-md border border-se-border bg-se-canvas shadow-panel",
     });
     document.body.appendChild(this.el);
     this.render();

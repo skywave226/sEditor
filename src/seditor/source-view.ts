@@ -12,7 +12,7 @@ export class SourceView {
   constructor(editor: Editor) {
     this.editor = editor;
     this.textarea = h("textarea", {
-      className: "se-content h-full w-full resize-none border-0 bg-white p-4 font-mono text-[13px] text-se-ink outline-none",
+      className: "se-content h-full w-full resize-none border-0 bg-se-canvas p-4 font-mono text-[13px] text-se-ink outline-none",
     }) as HTMLTextAreaElement;
     (this.textarea as HTMLTextAreaElement).style.fontFamily = '"SFMono-Regular", Consolas, monospace';
     (this.textarea as HTMLTextAreaElement).spellcheck = false;

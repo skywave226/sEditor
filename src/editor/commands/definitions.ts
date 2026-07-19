@@ -41,13 +41,12 @@ export const commandDefinitions: EditorCommand[] = [
   cmd("copy", () => false, (e) => !e.state.selection.empty, (e) => {
     const { from, to } = e.state.selection;
     const text = e.state.doc.textBetween(from, to, "\n");
-    // 异步写入剪贴板；失败时回退到 document.execCommand
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).catch(() => {
-        try { document.execCommand("copy"); } catch { /* ignore */ }
+        fallbackCopyToClipboard(text);
       });
     } else {
-      try { document.execCommand("copy"); } catch { /* ignore */ }
+      fallbackCopyToClipboard(text);
     }
   }),
   cmd("cut", () => false, (e) => !e.state.selection.empty, (e) => {
@@ -56,10 +55,12 @@ export const commandDefinitions: EditorCommand[] = [
     const doCut = () => e.chain().focus().deleteSelection().run();
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(doCut).catch(() => {
-        try { document.execCommand("cut"); } catch { doCut(); }
+        fallbackCopyToClipboard(text);
+        doCut();
       });
     } else {
-      try { document.execCommand("cut"); } catch { doCut(); }
+      fallbackCopyToClipboard(text);
+      doCut();
     }
   }),
   cmd("paste", () => false, () => true, (e) => {
@@ -213,7 +214,25 @@ export const commandDefinitions: EditorCommand[] = [
   }),
 ];
 
+/** 兼容性兜底：创建临时 textarea 选中文本后执行 document.execCommand('copy') */
+function fallbackCopyToClipboard(text: string): void {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+  } catch {
+    // ignore
+  }
+  ta.remove();
+}
+
 let registered = false;
+
 /** 注册所有命令（幂等） */
 export function ensureCommandsRegistered(): void {
   if (registered) return;
