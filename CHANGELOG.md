@@ -1,5 +1,15 @@
 # 更新说明
 
+## [2.6.1] - 2026-07-20
+
+### 修复
+- **无上传接口时给出明确提示**：图片 / 视频 / 音频 / 音乐对话框在未配置 `imageUpload` / `fileUpload` 时，顶部显示提示条「未配置 xxx 上传接口，仅支持网络地址」，避免用户先选文件后才发现无法上传。
+
+### 变更
+- `src/seditor/dialogs.ts`：为 `buildImageDialog` / `buildVideoDialog` / `buildAudioDialog` / `buildMusicDialog` 增加无上传配置提示。
+
+---
+
 ## [2.6.0] - 2026-07-20
 
 ### 新增

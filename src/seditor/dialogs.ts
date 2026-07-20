@@ -257,6 +257,10 @@ export class DialogManager {
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
+      } else {
+        const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+        tip.textContent = "未配置 imageUpload 上传接口，仅支持网络图片地址。";
+        body.appendChild(tip);
       }
 
       if (tab === "upload") {
@@ -589,6 +593,10 @@ export class DialogManager {
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
+      } else {
+        const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络视频地址。";
+        body.appendChild(tip);
       }
 
       if (tab === "upload") {
@@ -664,6 +672,10 @@ export class DialogManager {
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
+      } else {
+        const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络音频地址。";
+        body.appendChild(tip);
       }
 
       if (tab === "upload") {
@@ -989,6 +1001,10 @@ export class DialogManager {
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
+      } else {
+        const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络音频地址。";
+        body.appendChild(tip);
       }
 
       if (tab === "upload") {
