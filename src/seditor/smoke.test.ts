@@ -96,6 +96,22 @@ describe("sEditor smoke", () => {
     expect(editor.getText()).toContain("🚀");
   });
 
+  it("exec('chart', ...) 应插入 SVG 图表节点", () => {
+    editor.exec("chart", { type: "bar", title: "销量", labels: "一月,二月", values: "10,20", colors: "#3b82f6,#ef4444" });
+    const html = editor.getHTML();
+    expect(html).toContain("<img");
+    expect(html).toContain('data-chart="true"');
+    expect(html).toContain("销量");
+  });
+
+  it("exec('table', ...) 应插入表格", () => {
+    editor.exec("table", { rows: 2, cols: 2, withHeaderRow: true });
+    const html = editor.getHTML();
+    expect(html).toContain("<table");
+    expect(html).toContain("<th");
+    expect(html).toContain("<td");
+  });
+
   it("importMarkdown 应解析标题/列表/链接并写入编辑器", () => {
     editor.importMarkdown(`# 标题\n\n- 项目 A\n- 项目 B\n\n[链接](https://example.com)`);
     const html = editor.getHTML();

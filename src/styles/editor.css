@@ -163,3 +163,23 @@
   pointer-events: none;
   height: 0;
 }
+
+/* 可缩放图片：移动端扩大触摸热区 */
+.se-img-resize-handle {
+  touch-action: none;
+}
+
+@media (pointer: coarse) {
+  .se-img-resize-handle {
+    width: 22px !important;
+    height: 22px !important;
+    right: -6px !important;
+    bottom: -6px !important;
+  }
+
+  .se-img-toolbar {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    top: -40px !important;
+  }
+}

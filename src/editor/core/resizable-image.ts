@@ -113,15 +113,17 @@ export const ResizableImage = Image.extend({
       handle.style.position = "absolute";
       handle.style.right = "-4px";
       handle.style.bottom = "-4px";
-      handle.style.width = "10px";
-      handle.style.height = "10px";
+      handle.style.width = "14px";
+      handle.style.height = "14px";
       handle.style.background = "#3b82f6";
-      handle.style.border = "1px solid #fff";
+      handle.style.border = "2px solid #fff";
       handle.style.borderRadius = "50%";
       handle.style.cursor = "nwse-resize";
       handle.style.boxShadow = "0 1px 3px rgba(0,0,0,0.3)";
       handle.style.opacity = "0";
       handle.style.transition = "opacity 0.15s";
+      // 扩大移动端触摸热区
+      handle.style.touchAction = "none";
       wrapper.appendChild(handle);
 
       // 浮动对齐工具栏（hover 时显示）
@@ -153,17 +155,22 @@ export const ResizableImage = Image.extend({
       toolbar.appendChild(delBtn);
       wrapper.appendChild(toolbar);
 
-      // hover 时显示手柄和工具栏
-      wrapper.addEventListener("mouseenter", () => {
+      // hover 时显示手柄和工具栏；移动端通过 click/touch 切换
+      const showToolbar = () => {
         handle.style.opacity = "1";
         toolbar.style.opacity = "1";
         toolbar.style.pointerEvents = "auto";
-      });
-      wrapper.addEventListener("mouseleave", () => {
-        if (!handle.dataset.dragging) handle.style.opacity = "0";
+      };
+      const hideToolbar = () => {
+        if (handle.dataset.dragging) return;
+        handle.style.opacity = "0";
         toolbar.style.opacity = "0";
         toolbar.style.pointerEvents = "none";
-      });
+      };
+      wrapper.addEventListener("mouseenter", showToolbar);
+      wrapper.addEventListener("mouseleave", hideToolbar);
+      wrapper.addEventListener("touchstart", showToolbar, { passive: true });
+      wrapper.addEventListener("click", showToolbar);
 
       // 渲染节点 attrs
       const renderAttrs = (n: Node) => {
@@ -197,57 +204,82 @@ export const ResizableImage = Image.extend({
       };
       renderAttrs(node);
 
-      // 拖拽逻辑
+      // 拖拽逻辑（鼠标 + 触摸）
       let dragging = false;
       let startX = 0;
       let startWidth = 0;
 
+      const startResize = (clientX: number) => {
+        dragging = true;
+        handle.dataset.dragging = "1";
+        startX = clientX;
+        startWidth = img.offsetWidth;
+      };
+      const moveResize = (clientX: number) => {
+        if (!dragging) return;
+        const delta = clientX - startX;
+        let newWidth = Math.max(20, startWidth + delta);
+        // 不超过容器宽度
+        const maxWidth = wrapper.parentElement?.clientWidth ?? 9999;
+        if (newWidth > maxWidth) newWidth = maxWidth;
+        img.style.width = `${newWidth}px`;
+      };
+      const endResize = () => {
+        if (!dragging) return;
+        dragging = false;
+        delete handle.dataset.dragging;
+        handle.style.opacity = "0";
+        // 写入 attrs
+        const finalWidth = Math.round(img.offsetWidth);
+        if (typeof getPos === "function") {
+          const pos = getPos();
+          if (typeof pos === "number") {
+            editor
+              .chain()
+              .focus()
+              .command(({ tr }) => {
+                tr.setNodeMarkup(pos, undefined, {
+                  ...(node.attrs as object),
+                  width: finalWidth,
+                });
+                return true;
+              })
+              .run();
+          }
+        }
+      };
+
       handle.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        dragging = true;
-        handle.dataset.dragging = "1";
-        startX = e.clientX;
-        startWidth = img.offsetWidth;
+        startResize(e.clientX);
 
-        const onMove = (ev: MouseEvent) => {
-          if (!dragging) return;
-          const delta = ev.clientX - startX;
-          let newWidth = Math.max(20, startWidth + delta);
-          // 不超过容器宽度
-          const maxWidth = wrapper.parentElement?.clientWidth ?? 9999;
-          if (newWidth > maxWidth) newWidth = maxWidth;
-          img.style.width = `${newWidth}px`;
-        };
+        const onMove = (ev: MouseEvent) => moveResize(ev.clientX);
         const onUp = () => {
-          if (!dragging) return;
-          dragging = false;
-          delete handle.dataset.dragging;
-          handle.style.opacity = "0";
+          endResize();
           document.removeEventListener("mousemove", onMove);
           document.removeEventListener("mouseup", onUp);
-          // 写入 attrs
-          const finalWidth = Math.round(img.offsetWidth);
-          if (typeof getPos === "function") {
-            const pos = getPos();
-            if (typeof pos === "number") {
-              editor
-                .chain()
-                .focus()
-                .command(({ tr }) => {
-                  tr.setNodeMarkup(pos, undefined, {
-                    ...(node.attrs as object),
-                    width: finalWidth,
-                  });
-                  return true;
-                })
-                .run();
-            }
-          }
         };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
       });
+
+      handle.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        startResize(e.touches[0].clientX);
+
+        const onMove = (ev: TouchEvent) => moveResize(ev.touches[0].clientX);
+        const onEnd = () => {
+          endResize();
+          document.removeEventListener("touchmove", onMove);
+          document.removeEventListener("touchend", onEnd);
+          document.removeEventListener("touchcancel", onEnd);
+        };
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onEnd);
+        document.addEventListener("touchcancel", onEnd);
+      }, { passive: false });
 
       // 点击图片选中节点
       img.addEventListener("click", (e) => {
