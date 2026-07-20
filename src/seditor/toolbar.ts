@@ -11,7 +11,29 @@ import {
 } from "../editor/runtime-config";
 import type { UIStore } from "./store";
 
-const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar", "video", "audio", "emoji", "findReplace"]);
+const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar", "video", "audio", "emoji", "findReplace", "iframe", "anchor"]);
+
+const PARAGRAPH_SPACING_OPTIONS = [
+  { label: "默认", value: "" },
+  { label: "0px", value: "0px" },
+  { label: "6px", value: "6px" },
+  { label: "12px", value: "12px" },
+  { label: "18px", value: "18px" },
+  { label: "24px", value: "24px" },
+  { label: "36px", value: "36px" },
+];
+
+const TEXT_DIRECTION_OPTIONS = [
+  { label: "默认", value: "" },
+  { label: "从左到右", value: "ltr" },
+  { label: "从右到左", value: "rtl" },
+];
+
+const TEXT_CASE_OPTIONS = [
+  { label: "大写", value: "upper", command: "textCaseUpper" },
+  { label: "小写", value: "lower", command: "textCaseLower" },
+  { label: "首字母大写", value: "capitalize", command: "textCaseCapitalize" },
+];
 
 /** 归一化字体值用于比较：去引号、去空白、小写 */
 function normalizeFontValue(v: string | undefined | null): string {
@@ -107,6 +129,24 @@ const toolbarGroups: ToolbarItemConfig[][] = [
   ],
   [{ type: "dropdown", id: "export", dropdown: "export", label: "导出", width: 80 }],
   [{ type: "button", id: "removeFormat", label: "清除格式 (Ctrl+\\)", command: "removeFormat", icon: "eraser" }],
+  [
+    { type: "dropdown", id: "paragraphSpacingBefore", dropdown: "paragraphSpacingBefore", label: "段前距", width: 80 },
+    { type: "dropdown", id: "paragraphSpacingAfter", dropdown: "paragraphSpacingAfter", label: "段后距", width: 80 },
+  ],
+  [{ type: "dropdown", id: "textDirection", dropdown: "textDirection", label: "文字方向", width: 90 }],
+  [{ type: "button", id: "characterBorder", label: "字符边框", command: "characterBorder", icon: "characterBorder" }],
+  [{ type: "button", id: "pageBreak", label: "分页符", command: "pageBreak", icon: "pageBreak" }],
+  [
+    { type: "button", id: "iframe", label: "插入 iframe", command: "iframe", icon: "iframe" },
+    { type: "button", id: "anchor", label: "插入锚点", command: "anchor", icon: "anchor" },
+  ],
+  [{ type: "dropdown", id: "textCase", dropdown: "textCase", label: "字母大小写", width: 100 }],
+  [
+    { type: "button", id: "formatPainterCopy", label: "格式刷复制", command: "formatPainterCopy", icon: "formatPainter" },
+    { type: "button", id: "formatPainterApply", label: "格式刷应用", command: "formatPainterApply", icon: "formatPainter" },
+  ],
+  [{ type: "button", id: "autoFormat", label: "自动排版", command: "autoFormat", icon: "autoFormat" }],
+  [{ type: "dropdown", id: "backgroundColor", dropdown: "backgroundColor", label: "背景色", width: 80 }],
   [
     { type: "button", id: "sourceToggle", label: "源码", command: "__source__", icon: "code", variant: "toggle" },
     { type: "button", id: "fullscreenToggle", label: "全屏 (F11)", command: "__fullscreen__", icon: "maximize", variant: "toggle" },
@@ -435,6 +475,16 @@ export class Toolbar {
       this.buildExportPanel(panel, close);
     } else if (kind === "codeLanguage") {
       this.buildCodeLanguagePanel(panel, close);
+    } else if (kind === "paragraphSpacingBefore") {
+      this.buildParagraphSpacingPanel(panel, close, "before");
+    } else if (kind === "paragraphSpacingAfter") {
+      this.buildParagraphSpacingPanel(panel, close, "after");
+    } else if (kind === "textDirection") {
+      this.buildTextDirectionPanel(panel, close);
+    } else if (kind === "textCase") {
+      this.buildTextCasePanel(panel, close);
+    } else if (kind === "backgroundColor") {
+      this.buildBackgroundColorPanel(panel, close);
     } else {
       return null;
     }
@@ -483,6 +533,87 @@ export class Toolbar {
       inner.appendChild(item);
     });
     panel.appendChild(inner);
+    panel.style.minWidth = "140px";
+  }
+
+  private buildParagraphSpacingPanel(panel: HTMLElement, close: () => void, type: "before" | "after"): void {
+    const inner = h("div", { className: "py-1" });
+    const attrKey = type === "before" ? "paragraphSpacingBefore" : "paragraphSpacingAfter";
+    const cmdKey = type === "before" ? "paragraphSpacingBefore" : "paragraphSpacingAfter";
+    const cur = this.editor.getAttributes("paragraph")[attrKey] as string | undefined;
+    PARAGRAPH_SPACING_OPTIONS.forEach((o) => {
+      const active = (cur || "") === o.value;
+      const item = this.buildMenuItem(o.label, active, () => {
+        commandRegistry.run(this.editor, cmdKey, o.value);
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
+    panel.style.minWidth = "120px";
+  }
+
+  private buildTextDirectionPanel(panel: HTMLElement, close: () => void): void {
+    const inner = h("div", { className: "py-1" });
+    const cur = this.editor.getAttributes("paragraph").dir as string | undefined;
+    TEXT_DIRECTION_OPTIONS.forEach((o) => {
+      const active = (cur || "") === o.value;
+      const item = this.buildMenuItem(o.label, active, () => {
+        if (o.value) commandRegistry.run(this.editor, `textDirection${o.value.toUpperCase()}` as "textDirectionLtr" | "textDirectionRtl");
+        else commandRegistry.run(this.editor, "textDirectionUnset");
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
+    panel.style.minWidth = "120px";
+  }
+
+  private buildTextCasePanel(panel: HTMLElement, close: () => void): void {
+    const inner = h("div", { className: "py-1" });
+    TEXT_CASE_OPTIONS.forEach((o) => {
+      const item = this.buildMenuItem(o.label, false, () => {
+        commandRegistry.run(this.editor, o.command);
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
+    panel.style.minWidth = "120px";
+  }
+
+  private buildBackgroundColorPanel(panel: HTMLElement, close: () => void): void {
+    const colors = ["#ffffff", "#f5f5f4", "#fef3c7", "#dcfce7", "#dbeafe", "#f3e8ff", "#ffe4e6", "#1f2937"];
+    const wrap = h("div", { className: "p-2" });
+    const titleEl = h("div", { className: "mb-1.5 text-[11px] text-se-faint" });
+    titleEl.textContent = "页面背景色";
+    wrap.appendChild(titleEl);
+    const grid = h("div", { className: "grid grid-cols-4 gap-1" });
+    colors.forEach((c) => {
+      const sw = h("button", {
+        type: "button",
+        title: c,
+        className: "h-6 w-6 rounded border border-se-border transition-transform hover:scale-110",
+      });
+      (sw as HTMLElement).style.background = c;
+      sw.addEventListener("click", () => {
+        commandRegistry.run(this.editor, "backgroundColor", c);
+        close();
+      });
+      grid.appendChild(sw);
+    });
+    wrap.appendChild(grid);
+    const clearBtn = h("button", {
+      type: "button",
+      className: "mt-2 w-full rounded px-2 py-1 text-left text-[12px] text-se-sub hover:bg-se-hover",
+    });
+    clearBtn.textContent = "清除背景";
+    clearBtn.addEventListener("click", () => {
+      commandRegistry.run(this.editor, "backgroundColor", "");
+      close();
+    });
+    wrap.appendChild(clearBtn);
+    panel.appendChild(wrap);
     panel.style.minWidth = "140px";
   }
 
@@ -653,6 +784,22 @@ export class Toolbar {
       ];
       const m = options.find((o) => o.value === cur);
       label = m ? m.label : "语言";
+    } else if (kind === "paragraphSpacingBefore") {
+      const cur = this.editor.getAttributes("paragraph").paragraphSpacingBefore as string | undefined;
+      const m = PARAGRAPH_SPACING_OPTIONS.find((o) => o.value === (cur ?? ""));
+      label = m ? m.label : "段前距";
+    } else if (kind === "paragraphSpacingAfter") {
+      const cur = this.editor.getAttributes("paragraph").paragraphSpacingAfter as string | undefined;
+      const m = PARAGRAPH_SPACING_OPTIONS.find((o) => o.value === (cur ?? ""));
+      label = m ? m.label : "段后距";
+    } else if (kind === "textDirection") {
+      const cur = this.editor.getAttributes("paragraph").dir as string | undefined;
+      const m = TEXT_DIRECTION_OPTIONS.find((o) => o.value === (cur ?? ""));
+      label = m ? m.label : "方向";
+    } else if (kind === "textCase") {
+      label = "大小写";
+    } else if (kind === "backgroundColor") {
+      label = "";
     }
     labelEl.textContent = label;
   }

@@ -1,5 +1,29 @@
 # 更新说明
 
+## [2.5.0] - 2026-07-20
+
+### 新增
+- **段前 / 段后距**：新增 `ParagraphSpacing` 扩展，为段落/标题增加 `paragraphSpacingBefore` / `paragraphSpacingAfter` 属性；工具栏新增「段前距 / 段后距」下拉。
+- **文字方向**：新增 `TextDirection` 扩展，支持段落/标题设置 `dir="ltr" / "rtl"`；工具栏新增「文字方向」下拉。
+- **字符边框**：新增 `CharacterBorder` Mark 扩展，给选中文本加 1px 实线边框。
+- **分页符**：新增 `PageBreak` 节点，渲染为 `page-break-after: always` 的分页块。
+- **iframe 插入**：新增 `Iframe` 节点与对话框，支持设置地址、宽度、高度。
+- **锚点**：新增 `Anchor` 内联原子节点，作为文档内书签目标。
+- **字母大小写**：新增「大写 / 小写 / 首字母大写」三个命令，对选中文本执行转换。
+- **格式刷**：新增「格式刷复制 / 应用」命令，可复制当前选区 marks 并应用到新选区。
+- **自动排版**：新增 `autoFormat` 命令，对选区或全文执行规范化（合并空格、全角空格转半角、连续标点转换等）。
+- **页面背景色**：新增 `backgroundColor` 命令，通过工具栏下拉为编辑区设置背景色。
+
+### 变更
+- `src/editor/core/extensions.ts` 注册 `ParagraphSpacing` / `TextDirection` / `CharacterBorder` / `PageBreak` / `Iframe` / `Anchor`。
+- `src/editor/commands/definitions.ts` 注册 v2.5.0 全部命令。
+- `src/seditor/toolbar.ts` / `src/seditor/icons.ts` / `src/seditor/dialogs.ts` 增加对应按钮、图标与 iframe/锚点对话框。
+
+### 测试
+- `pnpm check` 0 错误；`pnpm test` 21/21 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 479.00 kB / sEditor.esm.js 705.97 kB）。
+
+---
+
 ## [2.4.0] - 2026-07-20
 
 ### 新增

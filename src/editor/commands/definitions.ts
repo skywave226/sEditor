@@ -31,6 +31,31 @@ const cmd = (
   run: run(exec),
 });
 
+/** 对选中文本执行转换 */
+function transformSelectedText(editor: Editor, transform: (text: string) => string): void {
+  const { from, to } = editor.state.selection;
+  if (editor.state.selection.empty) return;
+  let tr = editor.state.tr;
+  editor.state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isText) return true;
+    const text = node.text ?? "";
+    const converted = transform(text);
+    if (converted === text) return true;
+    const start = Math.max(pos, from);
+    const end = Math.min(pos + node.nodeSize, to);
+    tr = tr.replaceWith(start, end, editor.state.schema.text(converted, node.marks));
+    return true;
+  });
+  editor.view.dispatch(tr);
+  editor.commands.focus();
+}
+
+/** 格式刷状态 */
+const formatPainterState: { marks: readonly import("@tiptap/pm/model").Mark[]; nodeType: string } = {
+  marks: [],
+  nodeType: "",
+};
+
 /** 全部命令定义 */
 export const commandDefinitions: EditorCommand[] = [
   // —— 历史 ——
@@ -275,6 +300,104 @@ export const commandDefinitions: EditorCommand[] = [
   cmd("splitCell", () => false, (e) => e.can().splitCell(), (e) => e.chain().focus().splitCell().run()),
   cmd("toggleHeaderRow", () => false, (e) => e.can().toggleHeaderRow(), (e) => e.chain().focus().toggleHeaderRow().run()),
   cmd("toggleHeaderColumn", () => false, (e) => e.can().toggleHeaderColumn(), (e) => e.chain().focus().toggleHeaderColumn().run()),
+
+  // —— 段前 / 段后距 ——
+  cmd("paragraphSpacingBefore", () => false, () => true, (e, p) => {
+    const v = String(p ?? "");
+    if (v) e.chain().focus().setParagraphSpacingBefore(v).run();
+    else e.chain().focus().unsetParagraphSpacingBefore().run();
+  }),
+  cmd("paragraphSpacingAfter", () => false, () => true, (e, p) => {
+    const v = String(p ?? "");
+    if (v) e.chain().focus().setParagraphSpacingAfter(v).run();
+    else e.chain().focus().unsetParagraphSpacingAfter().run();
+  }),
+
+  // —— 文字方向 ——
+  cmd("textDirectionLtr", (e) => e.isActive({ dir: "ltr" }), () => true, (e) => e.chain().focus().setTextDirection("ltr").run()),
+  cmd("textDirectionRtl", (e) => e.isActive({ dir: "rtl" }), () => true, (e) => e.chain().focus().setTextDirection("rtl").run()),
+  cmd("textDirectionUnset", () => false, () => true, (e) => e.chain().focus().unsetTextDirection().run()),
+
+  // —— 字符边框 ——
+  cmd("characterBorder", (e) => e.isActive("characterBorder"), (e) => e.can().toggleCharacterBorder(), (e) => e.chain().focus().toggleCharacterBorder().run()),
+
+  // —— 分页符 ——
+  cmd("pageBreak", () => false, () => true, (e) => e.chain().focus().insertPageBreak().run()),
+
+  // —— iframe ——
+  cmd("iframe", () => false, () => true, (e, p) => {
+    const { src, width, height } = (p ?? {}) as { src?: string; width?: string | number; height?: string | number };
+    if (!src) return;
+    e.chain().focus().insertIframe({ src, width, height }).run();
+  }),
+
+  // —— 锚点 ——
+  cmd("anchor", () => false, () => true, (e, p) => {
+    const { id, name } = (p ?? {}) as { id?: string; name?: string };
+    if (!id) return;
+    e.chain().focus().insertAnchor({ id, name }).run();
+  }),
+
+  // —— 字母大小写 ——
+  cmd("textCaseUpper", () => false, (e) => !e.state.selection.empty, (e) => transformSelectedText(e, (t) => t.toUpperCase())),
+  cmd("textCaseLower", () => false, (e) => !e.state.selection.empty, (e) => transformSelectedText(e, (t) => t.toLowerCase())),
+  cmd("textCaseCapitalize", () => false, (e) => !e.state.selection.empty, (e) => transformSelectedText(e, (t) => t.replace(/\b\w/g, (c) => c.toUpperCase()))),
+
+  // —— 格式刷 ——
+  cmd("formatPainterCopy", () => false, (e) => !e.state.selection.empty, (e) => {
+    formatPainterState.marks = e.state.selection.$from.marks();
+    formatPainterState.nodeType = e.state.selection.$from.parent.type.name;
+  }),
+  cmd("formatPainterApply", () => false, (e) => !e.state.selection.empty && formatPainterState.marks.length > 0, (e) => {
+    const { from, to } = e.state.selection;
+    const marks = formatPainterState.marks;
+    if (marks.length === 0) return;
+    let tr = e.state.tr;
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isText) return true;
+      marks.forEach((mark) => {
+        tr = tr.addMark(Math.max(pos, from), Math.min(pos + node.nodeSize, to), mark);
+      });
+      return true;
+    });
+    e.view.dispatch(tr);
+    e.commands.focus();
+  }),
+
+  // —— 自动排版 ——
+  cmd("autoFormat", () => false, () => true, (e) => {
+    const { from, to } = e.state.selection;
+    const selected = !e.state.selection.empty;
+    let tr = e.state.tr;
+    const start = selected ? from : 0;
+    const end = selected ? to : e.state.doc.content.size;
+    tr.doc.nodesBetween(start, end, (node, pos) => {
+      if (!node.isText) return true;
+      const text = node.text ?? "";
+      const cleaned = text
+        .replace(/[ \t]+/g, " ")
+        .replace(/\u3000/g, " ")
+        .replace(/,{2,}/g, "，")
+        .replace(/\.{3,}/g, "…")
+        .replace(/!{2,}/g, "！")
+        .replace(/\?{2,}/g, "？");
+      if (cleaned === text) return true;
+      const nodeFrom = Math.max(pos, start);
+      const nodeTo = Math.min(pos + node.nodeSize, end);
+      tr = tr.replaceWith(nodeFrom, nodeTo, e.state.schema.text(cleaned, node.marks));
+      return true;
+    });
+    e.view.dispatch(tr);
+    e.commands.focus();
+  }),
+
+  // —— 页面背景色 ——
+  cmd("backgroundColor", () => false, () => true, (e, p) => {
+    const color = String(p ?? "");
+    const el = e.view.dom as HTMLElement;
+    if (color) el.style.backgroundColor = color;
+    else el.style.removeProperty("background-color");
+  }),
 ];
 
 /** 兼容性兜底：创建临时 textarea 选中文本后执行 document.execCommand('copy') */

@@ -68,6 +68,18 @@ export const icons: Record<string, string> = {
   printer: wrap('<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14" rx="2"/>'),
   eye: wrap('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'),
   codeLanguage: wrap('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="12" y1="3" x2="12" y2="21"/>'),
+  paragraphSpacing: wrap('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><line x1="8" y1="3" x2="8" y2="9"/><line x1="16" y1="15" x2="16" y2="21"/>'),
+  textDirection: wrap('<path d="M4 6h12"/><path d="M4 12h8"/><path d="M4 18h6"/><path d="m20 8 4 4-4 4"/><path d="m20 8-4 4 4 4"/>'),
+  ltr: wrap('<path d="M4 6h12"/><path d="M4 12h8"/><path d="M4 18h6"/><path d="m18 8 4 4-4 4"/>'),
+  rtl: wrap('<path d="M20 6H8"/><path d="M20 12h-8"/><path d="M20 18h-6"/><path d="m6 8-4 4 4 4"/>'),
+  characterBorder: wrap('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 8h8v8H8z"/>'),
+  pageBreak: wrap('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="4 2"/>'),
+  iframe: wrap('<rect width="18" height="14" x="3" y="5" rx="2"/><path d="M3 10h18"/><path d="M8 5v14"/>'),
+  anchor: wrap('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M12 8V4"/><path d="M12 20v-4"/>'),
+  formatPainter: wrap('<path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>'),
+  autoFormat: wrap('<path d="M4 7V4h3"/><path d="M4 17v3h3"/><path d="M20 7V4h-3"/><path d="M20 17v3h-3"/><path d="M9 9h6v6H9z"/>'),
+  textCase: wrap('<path d="M4 7V5h6"/><path d="M4 11h6"/><path d="M14 11h6"/><path d="M17 7V5h-3"/><path d="M17 15v5"/><path d="M14 17h6"/>'),
+  background: wrap('<rect width="18" height="18" x="3" y="3" rx="2" fill="currentColor" fill-opacity="0.2"/><path d="M3 15h18"/>'),
 };
 
 /** 获取图标 SVG 字符串 */

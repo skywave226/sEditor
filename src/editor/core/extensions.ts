@@ -20,6 +20,12 @@ import { MarkdownShortcuts } from "./markdown-shortcuts";
 import { Video, Audio } from "./media";
 import { Subscript } from "./subscript";
 import { Superscript } from "./superscript";
+import { ParagraphSpacing } from "./paragraph-spacing";
+import { TextDirection } from "./text-direction";
+import { CharacterBorder } from "./character-border";
+import { PageBreak } from "./page-break";
+import { Iframe } from "./iframe";
+import { Anchor } from "./anchor";
 
 /**
  * 扩展 Link：增加 download 属性，用于文件下载链接。
@@ -87,6 +93,16 @@ export function buildExtensions(placeholder?: string): Extensions {
     // 下标 / 上标
     Subscript,
     Superscript,
+    // 段前/段后距
+    ParagraphSpacing,
+    // 文字方向
+    TextDirection,
+    // 字符边框
+    CharacterBorder,
+    // 分页符 / iframe / 锚点
+    PageBreak,
+    Iframe,
+    Anchor,
     // 视频 / 音频节点（<video controls> / <audio controls>），atom 不可编辑
     Video,
     Audio,

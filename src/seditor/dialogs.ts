@@ -128,6 +128,8 @@ export class DialogManager {
     else if (name === "audio") shell = this.buildAudioDialog();
     else if (name === "emoji") shell = this.buildEmojiDialog();
     else if (name === "findReplace") shell = this.buildFindReplaceDialog();
+    else if (name === "iframe") shell = this.buildIframeDialog();
+    else if (name === "anchor") shell = this.buildAnchorDialog();
     if (!shell) {
       // 未知对话框名：重置 store 以免状态卡死
       this.store.closeDialog();
@@ -885,6 +887,59 @@ export class DialogManager {
     btnRow.appendChild(makeBtn("替换", replaceCurrent));
     btnRow.appendChild(makeBtn("全部替换", replaceAll, true));
     body.appendChild(btnRow);
+
+    return shell;
+  }
+
+  private buildIframeDialog(): HTMLElement {
+    let src = "";
+    let width = "100%";
+    let height = "300";
+
+    const { shell, body } = buildDialogShell({
+      title: "插入 iframe",
+      width: 440,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const url = src.trim();
+        if (!url) return;
+        commandRegistry.run(this.editor, "iframe", { src: url, width, height });
+        this.close();
+      },
+      confirmDisabled: !src.trim(),
+    });
+
+    const srcInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
+    body.appendChild(buildField("页面地址", srcInput));
+    const wInput = buildInput({ value: width, placeholder: "如 100% 或 480", onInput: (v) => { width = v; } });
+    body.appendChild(buildField("宽度", wInput));
+    const hInput = buildInput({ value: height, placeholder: "如 300", onInput: (v) => { height = v; } });
+    body.appendChild(buildField("高度", hInput));
+
+    return shell;
+  }
+
+  private buildAnchorDialog(): HTMLElement {
+    let id = "";
+    let name = "";
+
+    const { shell, body } = buildDialogShell({
+      title: "插入锚点",
+      width: 420,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const anchorId = id.trim();
+        if (!anchorId) return;
+        commandRegistry.run(this.editor, "anchor", { id: anchorId, name: name.trim() || anchorId });
+        this.close();
+      },
+      confirmDisabled: !id.trim(),
+    });
+
+    const idInput = buildInput({ value: id, placeholder: "唯一标识，如 section-1", autoFocus: true, onInput: (v) => { id = v; } });
+    body.appendChild(buildField("锚点 ID", idInput));
+    const nameInput = buildInput({ value: name, placeholder: "（可选）显示名称", onInput: (v) => { name = v; } });
+    body.appendChild(buildField("名称", nameInput));
 
     return shell;
   }
