@@ -82,6 +82,9 @@ export class TableBubble {
     addBtn("切换表头行", "tableHeader", () =>
       this.editor.chain().focus().toggleHeaderRow().run(),
     );
+    addBtn("切换表头列", "tableHeader", () =>
+      this.editor.chain().focus().toggleHeaderColumn().run(),
+    );
     sep();
     addBtn("删除表格", "trashTable", () =>
       this.editor.chain().focus().deleteTable().run(),

@@ -1,5 +1,28 @@
 # 更新说明
 
+## [2.4.0] - 2026-07-20
+
+### 新增
+- **表格高级操作**：表格浮动工具栏 `TableBubble` 增加「上方插入行/下方插入行/左侧插入列/右侧插入列/删除行/删除列/合并单元格/拆分单元格/切换表头行/切换表头列/删除表格」全部能力，调用 TipTap Table 内置命令实现。
+- **图片对齐**：`ResizableImage` 扩展新增 `align` 属性（none / left / right / center），图片 NodeView 根据对齐方式动态应用 `float` / `margin` / `display` 样式；工具栏新增「图片默认 / 左浮动 / 居中 / 右浮动」四个按钮，图片 hover 浮层也支持快速切换对齐。
+- **下标 / 上标**：新增 `Subscript` / `Superscript` Mark 扩展，渲染为 `<sub>` / `<sup>`，支持工具栏按钮及快捷键 `Ctrl+,` / `Ctrl+.`。
+- **取消链接**：工具栏新增「取消链接」按钮，调用 `unsetLink` 移除当前选区的超链接。
+- **全选 / 清空文档**：工具栏新增「全选」和「清空文档」按钮，分别映射 `selectAll` / `clearContent`。
+- **代码语言选择**：工具栏新增「语言」下拉，支持在代码块内切换语言（纯文本 / JavaScript / TypeScript / HTML / CSS / Python / Java / Go / Rust / SQL / Shell / JSON / XML / Markdown / YAML / Bash 等）。
+- **打印 / 预览**：工具栏新增「打印」和「预览」按钮；打印调用 `window.print()`，预览打开新窗口展示当前 HTML 内容。
+- **插入时间 / 日期**：工具栏新增「插入时间」和「插入日期」按钮，按 `HH:mm:ss` / `YYYY-MM-DD` 格式插入文本。
+
+### 变更
+- `ResizableImage.addCommands` 现在继承父扩展的 `setImage` 命令，避免自定义 NodeView 覆盖后丢失 `setImage`；同时新增 `setImageAlign` 命令并正确声明模块类型。
+- `src/editor/core/extensions.ts` 注册 `Subscript` / `Superscript`。
+- `src/editor/commands/definitions.ts` 注册 `subscript` / `superscript` / `unlink` / `imageAlignNone/Left/Center/Right` / `selectAll` / `clearDocument` / `codeBlockLang` / `insertTime` / `insertDate` / `print` / `preview` / 表格相关命令。
+- `src/seditor/toolbar.ts` 与 `src/seditor/icons.ts` 增加对应按钮与图标。
+
+### 测试
+- `pnpm check` 0 错误；`pnpm test` 21/21 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 465.75 kB / sEditor.esm.js 688.63 kB）。
+
+---
+
 ## [2.3.3] - 2026-07-19
 
 ### 变更

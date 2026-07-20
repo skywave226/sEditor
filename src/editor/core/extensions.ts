@@ -18,6 +18,8 @@ import { Indent } from "./indent";
 import { ResizableImage } from "./resizable-image";
 import { MarkdownShortcuts } from "./markdown-shortcuts";
 import { Video, Audio } from "./media";
+import { Subscript } from "./subscript";
+import { Superscript } from "./superscript";
 
 /**
  * 扩展 Link：增加 download 属性，用于文件下载链接。
@@ -82,6 +84,9 @@ export function buildExtensions(placeholder?: string): Extensions {
     // 内联 Markdown 快捷输入：**bold**/*italic*/~~strike~~/`code`
     // 块级 Markdown（# / - / > / --- / ```）由 StarterKit 提供
     MarkdownShortcuts,
+    // 下标 / 上标
+    Subscript,
+    Superscript,
     // 视频 / 音频节点（<video controls> / <audio controls>），atom 不可编辑
     Video,
     Audio,

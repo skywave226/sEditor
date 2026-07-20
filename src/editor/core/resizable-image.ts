@@ -3,6 +3,16 @@ import type { NodeViewRendererProps } from "@tiptap/core";
 import type { Node } from "@tiptap/pm/model";
 import { getIcon } from "../../seditor/icons";
 
+type ImageAlign = "none" | "left" | "right" | "center";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    resizableImage: {
+      setImageAlign: (align: ImageAlign) => ReturnType;
+    };
+  }
+}
+
 /** 创建浮动工具栏按钮 */
 function makeToolbarBtn(title: string, svg: string, onClick: () => void): HTMLButtonElement {
   const btn = document.createElement("button");
@@ -52,6 +62,32 @@ export const ResizableImage = Image.extend({
           return { width: attrs.width };
         },
       },
+      align: {
+        default: "none",
+        parseHTML: (el) => {
+          const img = el as HTMLImageElement;
+          const style = img.style;
+          if (style.float === "left") return "left";
+          if (style.float === "right") return "right";
+          if (style.display === "block" && style.marginLeft === "auto" && style.marginRight === "auto") return "center";
+          return "none";
+        },
+        renderHTML: (attrs) => {
+          const align = (attrs.align as ImageAlign) || "none";
+          if (align === "none") return {};
+          return { "data-align": align };
+        },
+      },
+    };
+  },
+
+  addCommands() {
+    return {
+      ...this.parent?.(),
+      setImageAlign:
+        (align: ImageAlign) =>
+        ({ chain }): boolean =>
+          chain().updateAttributes("image", { align }).run(),
     };
   },
 
@@ -96,13 +132,14 @@ export const ResizableImage = Image.extend({
         "display:flex;gap:2px;padding:4px;background:rgba(31,41,55,0.92);" +
         "border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);" +
         "opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:10;";
-      const alignBtn = (title: string, icon: string, align: "left" | "center" | "right") =>
+      const alignBtn = (title: string, icon: string, align: ImageAlign) =>
         makeToolbarBtn(title, getIcon(icon), () => {
-          editor.chain().focus().setTextAlign(align).run();
+          editor.chain().focus().setImageAlign(align).run();
         });
-      toolbar.appendChild(alignBtn("左对齐", "alignLeft", "left"));
+      toolbar.appendChild(alignBtn("默认", "alignJustify", "none"));
+      toolbar.appendChild(alignBtn("左浮动", "alignLeft", "left"));
       toolbar.appendChild(alignBtn("居中", "alignCenter", "center"));
-      toolbar.appendChild(alignBtn("右对齐", "alignRight", "right"));
+      toolbar.appendChild(alignBtn("右浮动", "alignRight", "right"));
       // 删除按钮
       const delBtn = makeToolbarBtn("删除图片", getIcon("trash"), () => {
         if (typeof getPos === "function") {
@@ -130,12 +167,33 @@ export const ResizableImage = Image.extend({
 
       // 渲染节点 attrs
       const renderAttrs = (n: Node) => {
-        const attrs = n.attrs as { src: string; alt?: string; title?: string; width?: string | number | null };
+        const attrs = n.attrs as { src: string; alt?: string; title?: string; width?: string | number | null; align?: ImageAlign };
         img.src = attrs.src;
         if (attrs.alt) img.alt = attrs.alt; else img.removeAttribute("alt");
         if (attrs.title) img.title = attrs.title; else img.removeAttribute("title");
         if (attrs.width) img.style.width = typeof attrs.width === "number" ? `${attrs.width}px` : attrs.width;
         else img.style.width = "";
+        const align = attrs.align || "none";
+        // 重置
+        img.style.float = "";
+        img.style.display = "";
+        img.style.marginLeft = "";
+        img.style.marginRight = "";
+        wrapper.style.display = "inline-block";
+        wrapper.style.textAlign = "";
+        if (align === "left") {
+          img.style.float = "left";
+          img.style.marginRight = "12px";
+          img.style.marginBottom = "6px";
+        } else if (align === "right") {
+          img.style.float = "right";
+          img.style.marginLeft = "12px";
+          img.style.marginBottom = "6px";
+        } else if (align === "center") {
+          img.style.display = "block";
+          img.style.marginLeft = "auto";
+          img.style.marginRight = "auto";
+        }
       };
       renderAttrs(node);
 

@@ -51,6 +51,8 @@ const toolbarGroups: ToolbarItemConfig[][] = [
     { type: "button", id: "italic", label: "斜体 (Ctrl+I)", command: "italic", icon: "italic" },
     { type: "button", id: "underline", label: "下划线 (Ctrl+U)", command: "underline", icon: "underline" },
     { type: "button", id: "strike", label: "删除线 (Ctrl+Shift+X)", command: "strike", icon: "strike" },
+    { type: "button", id: "subscript", label: "下标 (Ctrl+,)", command: "subscript", icon: "subscript" },
+    { type: "button", id: "superscript", label: "上标 (Ctrl+.)", command: "superscript", icon: "superscript" },
   ],
   [
     { type: "dropdown", id: "color", dropdown: "color", label: "文字颜色", width: 36 },
@@ -74,10 +76,16 @@ const toolbarGroups: ToolbarItemConfig[][] = [
   [
     { type: "button", id: "blockquote", label: "引用 (Ctrl+Shift+B)", command: "blockquote", icon: "quote" },
     { type: "button", id: "codeBlock", label: "代码块 (Ctrl+Alt+C)", command: "codeBlock", icon: "code2" },
+    { type: "dropdown", id: "codeLanguage", dropdown: "codeLanguage", label: "语言", width: 90 },
   ],
   [
     { type: "button", id: "link", label: "超链接 (Ctrl+K)", command: "link", icon: "link" },
+    { type: "button", id: "unlink", label: "取消链接", command: "unlink", icon: "unlink" },
     { type: "button", id: "image", label: "图片", command: "image", icon: "image" },
+    { type: "button", id: "imageAlignNone", label: "图片默认", command: "imageAlignNone", icon: "alignJustify" },
+    { type: "button", id: "imageAlignLeft", label: "图片左浮动", command: "imageAlignLeft", icon: "alignLeft" },
+    { type: "button", id: "imageAlignCenter", label: "图片居中", command: "imageAlignCenter", icon: "alignCenter" },
+    { type: "button", id: "imageAlignRight", label: "图片右浮动", command: "imageAlignRight", icon: "alignRight" },
     { type: "button", id: "video", label: "视频", command: "video", icon: "video" },
     { type: "button", id: "audio", label: "音频", command: "audio", icon: "audio" },
     { type: "button", id: "file", label: "文件", command: "file", icon: "file" },
@@ -85,6 +93,14 @@ const toolbarGroups: ToolbarItemConfig[][] = [
     { type: "button", id: "horizontalRule", label: "分割线 (---)", command: "horizontalRule", icon: "minus" },
     { type: "button", id: "specialChar", label: "特殊字符", command: "specialChar", icon: "caseSensitive" },
     { type: "button", id: "emoji", label: "Emoji 表情", command: "emoji", icon: "emoji" },
+  ],
+  [
+    { type: "button", id: "insertTime", label: "插入时间", command: "insertTime", icon: "clock" },
+    { type: "button", id: "insertDate", label: "插入日期", command: "insertDate", icon: "calendar" },
+    { type: "button", id: "selectAll", label: "全选 (Ctrl+A)", command: "selectAll", icon: "selectAll" },
+    { type: "button", id: "clearDocument", label: "清空文档", command: "clearDocument", icon: "clearDocument" },
+    { type: "button", id: "print", label: "打印", command: "print", icon: "printer" },
+    { type: "button", id: "preview", label: "预览", command: "preview", icon: "eye" },
   ],
   [
     { type: "button", id: "findReplace", label: "查找替换 (Ctrl+F)", command: "findReplace", icon: "search" },
@@ -417,6 +433,8 @@ export class Toolbar {
       });
     } else if (kind === "export") {
       this.buildExportPanel(panel, close);
+    } else if (kind === "codeLanguage") {
+      this.buildCodeLanguagePanel(panel, close);
     } else {
       return null;
     }
@@ -439,6 +457,33 @@ export class Toolbar {
     });
     panel.appendChild(inner);
     panel.style.minWidth = "200px";
+  }
+
+  private buildCodeLanguagePanel(panel: HTMLElement, close: () => void): void {
+    const options = [
+      { label: "纯文本", value: "" },
+      { label: "JavaScript", value: "javascript" },
+      { label: "TypeScript", value: "typescript" },
+      { label: "HTML", value: "html" },
+      { label: "CSS", value: "css" },
+      { label: "Python", value: "python" },
+      { label: "Java", value: "java" },
+      { label: "JSON", value: "json" },
+      { label: "SQL", value: "sql" },
+      { label: "Bash", value: "bash" },
+    ];
+    const inner = h("div", { className: "py-1" });
+    const cur = this.editor.getAttributes("codeBlock").language as string | undefined;
+    options.forEach((o) => {
+      const active = (cur || "") === o.value;
+      const item = this.buildMenuItem(o.label, active, () => {
+        commandRegistry.run(this.editor, "codeBlockLang", o.value);
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
+    panel.style.minWidth = "140px";
   }
 
   private buildHeadingPanel(panel: HTMLElement, close: () => void): void {
@@ -593,6 +638,21 @@ export class Toolbar {
       label = "";
     } else if (kind === "export") {
       label = "导出";
+    } else if (kind === "codeLanguage") {
+      const cur = this.editor.getAttributes("codeBlock").language as string | undefined;
+      const options = [
+        { label: "JS", value: "javascript" },
+        { label: "TS", value: "typescript" },
+        { label: "HTML", value: "html" },
+        { label: "CSS", value: "css" },
+        { label: "Python", value: "python" },
+        { label: "Java", value: "java" },
+        { label: "JSON", value: "json" },
+        { label: "SQL", value: "sql" },
+        { label: "Bash", value: "bash" },
+      ];
+      const m = options.find((o) => o.value === cur);
+      label = m ? m.label : "语言";
     }
     labelEl.textContent = label;
   }
