@@ -124,7 +124,7 @@ describe("SlashMenu 回归", () => {
     tipTap.chain().focus().setTextSelection(2).run();
     // 单独实例化一个 SlashMenu 来测试 execute（SEditor 内部的也已实例化，但我们需要访问私有方法）
     const store = new UIStore();
-    const menu = new SlashMenu(tipTap, store);
+    const menu = new SlashMenu(tipTap, store, { locale: "zh-CN", t: (k) => String(k) } as unknown as import("../editor/core/i18n").I18n);
     // 触发一次 onTransaction 让 slashPos 被设置（通过 dispatch 一个空 tr）
     const tr = tipTap.state.tr;
     tipTap.view.dispatch(tr);

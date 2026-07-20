@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { cn, h } from "./dom";
 import { getIcon } from "./icons";
+import type { I18n } from "../editor/core/i18n";
 
 /**
  * 表格浮动工具栏
@@ -10,11 +11,13 @@ import { getIcon } from "./icons";
  */
 export class TableBubble {
   private editor: Editor;
+  private i18n: I18n;
   private el: HTMLElement;
   private visible = false;
 
-  constructor(editor: Editor) {
+  constructor(editor: Editor, i18n: I18n) {
     this.editor = editor;
+    this.i18n = i18n;
     this.el = this.build();
     this.el.style.display = "none";
     document.body.appendChild(this.el);
@@ -54,39 +57,39 @@ export class TableBubble {
       el.appendChild(d);
     };
 
-    addBtn("上方插入行", "rowTop", () =>
+    addBtn(this.i18n.t("tableBubble.addRowBefore"), "rowTop", () =>
       this.editor.chain().focus().addRowBefore().run(),
     );
-    addBtn("下方插入行", "rowBottom", () =>
+    addBtn(this.i18n.t("tableBubble.addRowAfter"), "rowBottom", () =>
       this.editor.chain().focus().addRowAfter().run(),
     );
-    addBtn("左侧插入列", "colLeft", () =>
+    addBtn(this.i18n.t("tableBubble.addColumnBefore"), "colLeft", () =>
       this.editor.chain().focus().addColumnBefore().run(),
     );
-    addBtn("右侧插入列", "colRight", () =>
+    addBtn(this.i18n.t("tableBubble.addColumnAfter"), "colRight", () =>
       this.editor.chain().focus().addColumnAfter().run(),
     );
     sep();
-    addBtn("删除行", "trash", () => this.editor.chain().focus().deleteRow().run());
-    addBtn("删除列", "trash", () =>
+    addBtn(this.i18n.t("tableBubble.deleteRow"), "trash", () => this.editor.chain().focus().deleteRow().run());
+    addBtn(this.i18n.t("tableBubble.deleteColumn"), "trash", () =>
       this.editor.chain().focus().deleteColumn().run(),
     );
     sep();
-    addBtn("合并单元格", "merge", () =>
+    addBtn(this.i18n.t("tableBubble.mergeCells"), "merge", () =>
       this.editor.chain().focus().mergeCells().run(),
     );
-    addBtn("拆分单元格", "split", () =>
+    addBtn(this.i18n.t("tableBubble.splitCell"), "split", () =>
       this.editor.chain().focus().splitCell().run(),
     );
     sep();
-    addBtn("切换表头行", "tableHeader", () =>
+    addBtn(this.i18n.t("tableBubble.toggleHeaderRow"), "tableHeader", () =>
       this.editor.chain().focus().toggleHeaderRow().run(),
     );
-    addBtn("切换表头列", "tableHeader", () =>
+    addBtn(this.i18n.t("tableBubble.toggleHeaderColumn"), "tableHeader", () =>
       this.editor.chain().focus().toggleHeaderColumn().run(),
     );
     sep();
-    addBtn("删除表格", "trashTable", () =>
+    addBtn(this.i18n.t("tableBubble.deleteTable"), "trashTable", () =>
       this.editor.chain().focus().deleteTable().run(),
     );
 

@@ -1,4 +1,6 @@
 import { Node } from "@tiptap/core";
+import { escapeXml } from "./sanitize";
+import { CHART_DEFAULTS } from "../constants";
 
 export type ChartType = "bar" | "line" | "pie";
 
@@ -47,9 +49,9 @@ function generateChartSvg(
   values: number[],
   colors: string[],
 ): string {
-  const width = 420;
-  const height = 260;
-  const pad = { top: 32, right: 24, bottom: 48, left: 48 };
+  const width = CHART_DEFAULTS.width;
+  const height = CHART_DEFAULTS.height;
+  const pad = CHART_DEFAULTS.pad;
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
   const max = Math.max(...values, 1);
@@ -64,9 +66,9 @@ function generateChartSvg(
       const h = (v / max) * chartH;
       const x = pad.left + (i + 0.5) * slot - barW / 2;
       const y = pad.top + chartH - h;
-      content += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${palette[i % palette.length]}" rx="2"/>`;
-      content += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="10" fill="#6b7280">${v}</text>`;
-      content += `<text x="${x + barW / 2}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#374151">${labels[i] ?? ""}</text>`;
+      content += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${escapeXml(palette[i % palette.length])}" rx="2"/>`;
+      content += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="10" fill="#6b7280">${escapeXml(String(v))}</text>`;
+      content += `<text x="${x + barW / 2}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#374151">${escapeXml(labels[i] ?? "")}</text>`;
     });
     content += `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + chartH}" stroke="#e5e7eb"/>`;
     content += `<line x1="${pad.left}" y1="${pad.top + chartH}" x2="${width - pad.right}" y2="${pad.top + chartH}" stroke="#e5e7eb"/>`;
@@ -81,11 +83,11 @@ function generateChartSvg(
     values.forEach((v, i) => {
       const x = pad.left + (i / Math.max(1, values.length - 1)) * chartW;
       const y = pad.top + chartH - (v / max) * chartH;
-      content += `<circle cx="${x}" cy="${y}" r="3" fill="${palette[0]}"/>`;
-      content += `<text x="${x}" y="${y - 8}" text-anchor="middle" font-size="10" fill="#6b7280">${v}</text>`;
-      content += `<text x="${x}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#374151">${labels[i] ?? ""}</text>`;
+      content += `<circle cx="${x}" cy="${y}" r="3" fill="${escapeXml(palette[0])}"/>`;
+      content += `<text x="${x}" y="${y - 8}" text-anchor="middle" font-size="10" fill="#6b7280">${escapeXml(String(v))}</text>`;
+      content += `<text x="${x}" y="${height - 12}" text-anchor="middle" font-size="11" fill="#374151">${escapeXml(labels[i] ?? "")}</text>`;
     });
-    content += `<polyline points="${points}" fill="none" stroke="${palette[0]}" stroke-width="2"/>`;
+    content += `<polyline points="${points}" fill="none" stroke="${escapeXml(palette[0])}" stroke-width="2"/>`;
     content += `<line x1="${pad.left}" y1="${pad.top + chartH}" x2="${width - pad.right}" y2="${pad.top + chartH}" stroke="#e5e7eb"/>`;
   } else if (type === "pie") {
     let start = 0;
@@ -98,17 +100,17 @@ function generateChartSvg(
       const x2 = cx + Math.cos(start + angle) * 80;
       const y2 = cy + Math.sin(start + angle) * 80;
       const large = angle > Math.PI ? 1 : 0;
-      content += `<path d="M${cx},${cy} L${x1},${y1} A80,80 0 ${large},1 ${x2},${y2} Z" fill="${palette[i % palette.length]}" stroke="#fff" stroke-width="1"/>`;
+      content += `<path d="M${cx},${cy} L${x1},${y1} A80,80 0 ${large},1 ${x2},${y2} Z" fill="${escapeXml(palette[i % palette.length])}" stroke="#fff" stroke-width="1"/>`;
       const labelAngle = start + angle / 2;
       const lx = cx + Math.cos(labelAngle) * 96;
       const ly = cy + Math.sin(labelAngle) * 96;
-      content += `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="10" fill="#374151">${labels[i] ?? ""}</text>`;
+      content += `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="10" fill="#374151">${escapeXml(labels[i] ?? "")}</text>`;
       start += angle;
     });
   }
 
   const titleSvg = title
-    ? `<text x="${width / 2}" y="18" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">${title}</text>`
+    ? `<text x="${width / 2}" y="18" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">${escapeXml(title)}</text>`
     : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width:100%">${titleSvg}${content}</svg>`;

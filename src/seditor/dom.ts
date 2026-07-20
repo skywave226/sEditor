@@ -86,3 +86,40 @@ export function onEscape(handler: () => void): () => void {
   document.addEventListener("keydown", onKey);
   return () => document.removeEventListener("keydown", onKey);
 }
+
+const FOCUSABLE_SELECTORS = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** 获取容器内所有可获得焦点的元素 */
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll(FOCUSABLE_SELECTORS)).filter(
+    (el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null,
+  );
+}
+
+/**
+ * 焦点陷阱：限制 Tab / Shift+Tab 仅在容器内循环，并在初始化时聚焦第一个可聚焦元素。
+ * 返回清理函数。
+ */
+export function trapFocus(container: HTMLElement): () => void {
+  const focusables = getFocusable(container);
+  if (focusables.length > 0) {
+    focusables[0].focus();
+  }
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const list = getFocusable(container);
+    if (list.length === 0) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  container.addEventListener("keydown", onKey);
+  return () => container.removeEventListener("keydown", onKey);
+}

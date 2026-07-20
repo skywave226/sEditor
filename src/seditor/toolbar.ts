@@ -11,6 +11,7 @@ import {
 } from "../editor/runtime-config";
 import { defaultTemplates } from "../editor/core/templates";
 import type { UIStore } from "./store";
+import type { I18n, I18nMessages } from "../editor/core/i18n";
 
 const DIALOG_COMMANDS = new Set([
   "link", "image", "file", "table", "specialChar", "video", "audio", "emoji",
@@ -170,6 +171,7 @@ export class Toolbar {
   private el: HTMLElement;
   private editor: Editor;
   private store: UIStore;
+  private i18n: I18n;
   private buttonEls = new Map<string, HTMLButtonElement>();
   private groupEls: HTMLElement[] = [];
   private groupConfigs: ToolbarItemConfig[][] = [];
@@ -180,9 +182,10 @@ export class Toolbar {
   private whitelist: Set<string> | null;
   private responsive: boolean;
 
-  constructor(editor: Editor, store: UIStore, items?: string[] | false, responsive = false) {
+  constructor(editor: Editor, store: UIStore, items?: string[] | false, responsive = false, i18n?: I18n) {
     this.editor = editor;
     this.store = store;
+    this.i18n = i18n ?? { locale: "zh-CN", t: (_k: string) => _k } as unknown as I18n;
     this.hidden = items === false;
     // null 表示不限制（显示全部）；空数组也视为不限制以避免误清空
     this.whitelist = Array.isArray(items) && items.length > 0 ? new Set(items) : null;
@@ -191,6 +194,14 @@ export class Toolbar {
     if (this.responsive) this.setupResponsive();
     this.syncState();
     this.bindEditorEvents();
+  }
+
+  /** 获取工具栏项的显示标签：优先使用 localeData 覆盖 */
+  private getItemLabel(item: ToolbarItemConfig): string {
+    if (!item.id) return item.label ?? "";
+    const key = `toolbar.${item.id}` as keyof I18nMessages;
+    const translated = this.i18n.t(key);
+    return translated === key ? (item.label ?? item.id) : translated;
   }
 
   getElement(): HTMLElement {
@@ -248,6 +259,7 @@ export class Toolbar {
         title: "更多",
         className: "flex h-8 items-center gap-1 rounded px-2 text-[13px] text-se-ink hover:bg-se-hover",
       });
+      moreBtn.setAttribute("aria-label", "更多");
       moreBtn.innerHTML = "更多 " + getIcon("chevronDown");
       let morePanel: HTMLElement | null = null;
       let morePanelCleanup: (() => void)[] = [];
@@ -380,16 +392,17 @@ export class Toolbar {
   }
 
   private buildButton(item: ToolbarItemConfig): HTMLButtonElement {
+    const label = this.getItemLabel(item);
     const btn = h("button", {
       type: "button",
-      title: item.label,
+      title: label,
       className: cn(
         "flex h-8 w-8 items-center justify-center rounded transition-colors text-se-ink hover:bg-se-hover",
       ),
       innerHTML: item.icon ? getIcon(item.icon) : "",
       onClick: () => this.handleCommand(item.command!),
     });
-    btn.setAttribute("aria-label", item.label ?? "");
+    btn.setAttribute("aria-label", label);
     return btn;
   }
 
@@ -399,6 +412,8 @@ export class Toolbar {
       type: "button",
       className: "flex h-8 items-center gap-1 rounded px-2 text-[13px] text-se-ink transition-colors hover:bg-se-hover",
     });
+    trigger.setAttribute("aria-label", item.label ?? "");
+    trigger.setAttribute("aria-haspopup", "true");
     if (item.width) (trigger as HTMLButtonElement).style.width = `${item.width}px`;
     const labelSpan = h("span", { className: "truncate" });
     const chev = fromHTML(`<span class="shrink-0 text-se-faint">${getIcon("chevronDown")}</span>`);

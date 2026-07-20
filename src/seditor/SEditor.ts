@@ -2,7 +2,7 @@ import { Editor } from "@tiptap/core";
 import { buildExtensions } from "../editor/core/extensions";
 import { ensureCommandsRegistered } from "../editor/commands/definitions";
 import { commandRegistry } from "../editor/commands/registry";
-import { getPlaceholder, getHeight } from "../editor/runtime-config";
+import { getHeight } from "../editor/runtime-config";
 import type { EditorConfig } from "../editor/types";
 import { cn, h } from "./dom";
 import { UIStore, type EditorUIState } from "./store";
@@ -15,6 +15,9 @@ import { TableBubble } from "./table-bubble";
 import { LinkBubble } from "./link-bubble";
 import { SlashMenu } from "./slash-menu";
 import { exportMarkdown, exportWord, exportPDF } from "./exporter";
+import { reportError } from "../editor/core/logger";
+import { createI18n, type I18n } from "../editor/core/i18n";
+import { DEFAULT_IMAGE_MAX_SIZE, DEFAULT_DRAFT_INTERVAL } from "../editor/constants";
 
 export interface SEditorOptions extends EditorConfig {
   target: HTMLElement | string;
@@ -46,6 +49,8 @@ export class SEditor {
   private imageUploadFn?: (file: File) => Promise<string>;
   private fileUploadFn?: (file: File) => Promise<string>;
   private imageMaxSizeBytes: number;
+  private config: EditorConfig;
+  private i18n: I18n;
 
   constructor(options: SEditorOptions) {
     const target =
@@ -56,12 +61,14 @@ export class SEditor {
       throw new Error(`[sEditor] 挂载目标未找到: ${options.target}`);
     }
     this.target = target;
+    this.config = options;
+    this.i18n = createI18n({ locale: options.locale, localeData: options.localeData });
     this.onChangeRef = options.onChange;
     this.onEditorReadyRef = options.onEditorReady;
     this.draftKey = options.draftKey;
     this.imageUploadFn = options.imageUpload;
     this.fileUploadFn = options.fileUpload;
-    this.imageMaxSizeBytes = options.imageMaxSize ?? 5 * 1024 * 1024;
+    this.imageMaxSizeBytes = options.imageMaxSize ?? DEFAULT_IMAGE_MAX_SIZE;
 
     ensureCommandsRegistered();
 
@@ -83,7 +90,7 @@ export class SEditor {
 
     // 创建编辑器
     const editor = new Editor({
-      extensions: buildExtensions(options.placeholder ?? getPlaceholder()),
+      extensions: buildExtensions(options.placeholder ?? this.i18n.t("editor.placeholder")),
       content: initialContent,
       editorProps: {
         attributes: { class: "se-content" },
@@ -123,19 +130,19 @@ export class SEditor {
     this.root.appendChild(this.frame);
 
     // 工具栏（toolbar: false 时不挂载）
-    this.toolbar = new Toolbar(editor, this.store, options.toolbar, options.toolbarResponsive);
+    this.toolbar = new Toolbar(editor, this.store, options.toolbar, options.toolbarResponsive, this.i18n);
     if (!this.toolbar.isHidden()) {
       this.root.insertBefore(this.toolbar.getElement(), this.root.firstChild);
     }
 
     // 状态栏
-    this.statusBar = new StatusBar(editor);
+    this.statusBar = new StatusBar(editor, this.i18n);
     this.root.appendChild(this.statusBar.getElement());
 
     target.appendChild(this.root);
 
     // 右键菜单
-    this.contextMenu = new ContextMenu(editor, this.store);
+    this.contextMenu = new ContextMenu(editor, this.store, this.i18n);
     const onCtx = (e: MouseEvent) => {
       e.preventDefault();
       this.contextMenu.open(e.clientX, e.clientY);
@@ -144,10 +151,10 @@ export class SEditor {
     this.cleanups.push(() => this.root.removeEventListener("contextmenu", onCtx));
 
     // 表格浮动工具栏
-    this.tableBubble = new TableBubble(editor);
+    this.tableBubble = new TableBubble(editor, this.i18n);
 
     // 链接编辑浮层
-    this.linkBubble = new LinkBubble(editor);
+    this.linkBubble = new LinkBubble(editor, this.i18n);
     const onOpenLinkDialog = (): void => this.store.openDialog("link");
     window.addEventListener("seditor:open-link-dialog", onOpenLinkDialog);
     this.cleanups.push(() => window.removeEventListener("seditor:open-link-dialog", onOpenLinkDialog));
@@ -162,10 +169,10 @@ export class SEditor {
     this.cleanups.push(() => window.removeEventListener("seditor:exec", onExec));
 
     // / 命令面板
-    this.slashMenu = new SlashMenu(editor, this.store);
+    this.slashMenu = new SlashMenu(editor, this.store, this.i18n);
 
     // 对话框管理
-    this.dialogMgr = new DialogManager(editor, this.store, options);
+    this.dialogMgr = new DialogManager(editor, this.store, options, this.i18n);
 
     // 源码视图
     this.sourceView = new SourceView(editor);
@@ -194,7 +201,7 @@ export class SEditor {
 
     // 草稿自动保存定时器
     if (this.draftKey) {
-      const interval = options.draftInterval ?? 3000;
+      const interval = options.draftInterval ?? DEFAULT_DRAFT_INTERVAL;
       this.draftTimer = setInterval(() => this.saveDraft(), interval);
       // 页面卸载前同步保存一次
       const onBeforeUnload = () => this.saveDraft();
@@ -254,7 +261,7 @@ export class SEditor {
             this.editor?.chain().focus().setImage({ src: url }).run();
           }
         } catch (err) {
-          console.error("[sEditor] 粘贴图片上传失败:", err);
+          reportError(this.config, "paste-image-upload", err);
         }
       }
     })();
@@ -275,7 +282,7 @@ export class SEditor {
             const url = await this.imageUploadFn(file);
             if (url) this.editor?.chain().focus().setImage({ src: url }).run();
           } catch (err) {
-            console.error("[sEditor] 拖拽图片上传失败:", err);
+            reportError(this.config, "drop-image-upload", err);
           }
         } else if (this.fileUploadFn) {
           try {
@@ -288,7 +295,7 @@ export class SEditor {
               });
             }
           } catch (err) {
-            console.error("[sEditor] 拖拽文件上传失败:", err);
+            reportError(this.config, "drop-file-upload", err);
           }
         }
       }

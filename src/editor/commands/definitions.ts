@@ -5,6 +5,7 @@ import type { MusicOptions } from "../core/music";
 import type { ChartOptions } from "../core/chart";
 import { captureScreenshot } from "../core/screenshot";
 import { imageSrcToBlob, downloadBlob, urlToDataUrl } from "../core/image-tools";
+import { isDangerousUrl, sanitizeForExport } from "../core/sanitize";
 
 const safe =
   (fn: (editor: Editor) => boolean) =>
@@ -180,6 +181,7 @@ export const commandDefinitions: EditorCommand[] = [
       e.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
+    if (isDangerousUrl(href)) return;
     // rel 由 Link 扩展的 HTMLAttributes 统一配置，此处不再重复传
     e.chain()
       .focus()
@@ -189,7 +191,7 @@ export const commandDefinitions: EditorCommand[] = [
   }),
   cmd("image", () => false, () => true, (e, p) => {
     const { src, width, alt } = (p ?? {}) as ImageOptions & { src: string };
-    if (!src) return;
+    if (!src || isDangerousUrl(src, "src")) return;
     const attrs: Record<string, unknown> = { src };
     if (width) attrs.width = width;
     if (alt) attrs.alt = alt;
@@ -201,7 +203,7 @@ export const commandDefinitions: EditorCommand[] = [
   }),
   cmd("file", () => false, () => true, (e, p) => {
     const { src, name, download } = (p ?? {}) as FileInsertOptions & { src: string };
-    if (!src) return;
+    if (!src || isDangerousUrl(src)) return;
     const text = name || src.split("/").pop() || "文件";
     // 通过 insertContent 插入文本节点并应用 link mark（含 download 属性）
     // DownloadableLink 扩展已支持 download 属性的存储与渲染
@@ -230,7 +232,7 @@ export const commandDefinitions: EditorCommand[] = [
   // 插入视频：<video controls>
   cmd("video", () => false, () => true, (e, p) => {
     const { src, width, controls } = (p ?? {}) as MediaOptions & { src: string };
-    if (!src) return;
+    if (!src || isDangerousUrl(src, "src")) return;
     const attrs: Record<string, unknown> = { src, controls: controls !== false };
     if (width != null) attrs.width = width;
     e.chain().focus().insertContent({ type: "video", attrs }).run();
@@ -238,7 +240,7 @@ export const commandDefinitions: EditorCommand[] = [
   // 插入音频：<audio controls>
   cmd("audio", () => false, () => true, (e, p) => {
     const { src, controls } = (p ?? {}) as MediaOptions & { src: string };
-    if (!src) return;
+    if (!src || isDangerousUrl(src, "src")) return;
     e.chain().focus().insertContent({ type: "audio", attrs: { src, controls: controls !== false } }).run();
   }),
 
@@ -277,7 +279,7 @@ export const commandDefinitions: EditorCommand[] = [
 
   // —— 打印 / 预览 ——
   cmd("print", () => false, () => true, (e) => {
-    const html = e.getHTML();
+    const html = sanitizeForExport(e.getHTML());
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>打印</title><style>body{font-family:system-ui,sans-serif;padding:24px;max-width:800px;margin:0 auto;}</style></head><body>${html}</body></html>`);
@@ -285,7 +287,7 @@ export const commandDefinitions: EditorCommand[] = [
     setTimeout(() => win.print(), 300);
   }),
   cmd("preview", () => false, () => true, (e) => {
-    const html = e.getHTML();
+    const html = sanitizeForExport(e.getHTML());
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>预览</title><style>body{font-family:system-ui,sans-serif;padding:24px;max-width:800px;margin:0 auto;background:#f5f6f7;} .se-preview-content{background:#fff;padding:32px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.1);}</style></head><body><div class="se-preview-content">${html}</div></body></html>`);

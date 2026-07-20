@@ -39,6 +39,8 @@ export interface EditorConfig {
   onChange?: (html: string) => void;
   /** 编辑器实例就绪后回调（浏览器打包场景下用于获取 Editor 实例） */
   onEditorReady?: (editor: Editor) => void;
+  /** 错误回调，上传/导出等异常时触发。未配置时降级到 console.error */
+  onError?: (error: Error, context: string) => void;
 }
 
 export interface SEditorOptions extends EditorConfig {

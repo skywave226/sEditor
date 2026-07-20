@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { cn, h, onClickOutside, onEscape } from "./dom";
 import { getIcon } from "./icons";
 import type { UIStore } from "./store";
+import type { I18n, I18nMessages } from "../editor/core/i18n";
 
 /**
  * / 命令面板：在空段落行首输入 / 时弹出命令菜单
@@ -14,38 +15,40 @@ import type { UIStore } from "./store";
  */
 interface SlashCommand {
   id: string;
-  label: string;
-  description: string;
+  labelKey: keyof I18nMessages;
+  descriptionKey: keyof I18nMessages;
   icon?: string;
   keywords: string[];
   run: (editor: Editor) => void;
 }
 
 const COMMANDS: SlashCommand[] = [
-  { id: "h1", label: "一级标题", description: "大标题", icon: undefined, keywords: ["h1", "标题", "heading"], run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run() },
-  { id: "h2", label: "二级标题", description: "中标题", keywords: ["h2", "标题"], run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },
-  { id: "h3", label: "三级标题", description: "小标题", keywords: ["h3", "标题"], run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run() },
-  { id: "paragraph", label: "正文", description: "普通段落", keywords: ["p", "正文", "paragraph"], run: (e) => e.chain().focus().setParagraph().run() },
-  { id: "bulletList", label: "无序列表", description: "• 项目符号列表", keywords: ["ul", "列表", "list"], run: (e) => e.chain().focus().toggleBulletList().run() },
-  { id: "orderedList", label: "有序列表", description: "1. 编号列表", keywords: ["ol", "列表", "list"], run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { id: "blockquote", label: "引用", description: "> 引用块", keywords: ["quote", "引用"], run: (e) => e.chain().focus().toggleBlockquote().run() },
-  { id: "codeBlock", label: "代码块", description: "``` 代码块", keywords: ["code", "代码"], run: (e) => e.chain().focus().toggleCodeBlock().run() },
-  { id: "horizontalRule", label: "分割线", description: "--- 水平线", keywords: ["hr", "分割线"], run: (e) => e.chain().focus().setHorizontalRule().run() },
-  { id: "table", label: "表格", description: "插入表格", keywords: ["table", "表格"], run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+  { id: "h1", labelKey: "slash.h1.label", descriptionKey: "slash.h1.description", icon: undefined, keywords: ["h1", "标题", "heading"], run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run() },
+  { id: "h2", labelKey: "slash.h2.label", descriptionKey: "slash.h2.description", keywords: ["h2", "标题"], run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },
+  { id: "h3", labelKey: "slash.h3.label", descriptionKey: "slash.h3.description", keywords: ["h3", "标题"], run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run() },
+  { id: "paragraph", labelKey: "slash.paragraph.label", descriptionKey: "slash.paragraph.description", keywords: ["p", "正文", "paragraph"], run: (e) => e.chain().focus().setParagraph().run() },
+  { id: "bulletList", labelKey: "slash.bulletList.label", descriptionKey: "slash.bulletList.description", keywords: ["ul", "列表", "list"], run: (e) => e.chain().focus().toggleBulletList().run() },
+  { id: "orderedList", labelKey: "slash.orderedList.label", descriptionKey: "slash.orderedList.description", keywords: ["ol", "列表", "list"], run: (e) => e.chain().focus().toggleOrderedList().run() },
+  { id: "blockquote", labelKey: "slash.blockquote.label", descriptionKey: "slash.blockquote.description", keywords: ["quote", "引用"], run: (e) => e.chain().focus().toggleBlockquote().run() },
+  { id: "codeBlock", labelKey: "slash.codeBlock.label", descriptionKey: "slash.codeBlock.description", keywords: ["code", "代码"], run: (e) => e.chain().focus().toggleCodeBlock().run() },
+  { id: "horizontalRule", labelKey: "slash.horizontalRule.label", descriptionKey: "slash.horizontalRule.description", keywords: ["hr", "分割线"], run: (e) => e.chain().focus().setHorizontalRule().run() },
+  { id: "table", labelKey: "slash.table.label", descriptionKey: "slash.table.description", keywords: ["table", "表格"], run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
 ];
 
 export class SlashMenu {
   private editor: Editor;
   private store: UIStore;
+  private i18n: I18n;
   private el: HTMLElement | null = null;
   private cleanups: (() => void)[] = [];
   private filter = "";
   private selected = 0;
   private slashPos: number | null = null;
 
-  constructor(editor: Editor, store: UIStore) {
+  constructor(editor: Editor, store: UIStore, i18n: I18n) {
     this.editor = editor;
     this.store = store;
+    this.i18n = i18n;
 
     const handler = (): void => this.onTransaction();
     editor.on("transaction", handler);
@@ -79,7 +82,7 @@ export class SlashMenu {
   private get filteredCommands(): SlashCommand[] {
     if (!this.filter) return COMMANDS;
     return COMMANDS.filter((c) =>
-      c.label.toLowerCase().includes(this.filter) ||
+      this.i18n.t(c.labelKey).toLowerCase().includes(this.filter) ||
       c.keywords.some((k) => k.toLowerCase().includes(this.filter)),
     );
   }
@@ -128,7 +131,7 @@ export class SlashMenu {
     const cmds = this.filteredCommands;
     if (cmds.length === 0) {
       const empty = h("div", { className: "px-3 py-2 text-[12px] text-se-faint" });
-      empty.textContent = "无匹配命令";
+      empty.textContent = this.i18n.t("slash.empty");
       this.el.appendChild(empty);
       return;
     }
@@ -146,9 +149,9 @@ export class SlashMenu {
       }
       const text = h("div", { className: "flex-1" });
       const label = h("div", { className: "text-[13px] font-medium" });
-      label.textContent = c.label;
+      label.textContent = this.i18n.t(c.labelKey);
       const desc = h("div", { className: "text-[11px] text-se-faint" });
-      desc.textContent = c.description;
+      desc.textContent = this.i18n.t(c.descriptionKey);
       text.appendChild(label);
       text.appendChild(desc);
       item.appendChild(text);

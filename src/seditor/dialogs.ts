@@ -1,22 +1,28 @@
 import type { Editor } from "@tiptap/core";
-import { cn, h, fromHTML, onEscape } from "./dom";
+import { cn, h, fromHTML, onEscape, trapFocus } from "./dom";
 import { getIcon } from "./icons";
 import { commandRegistry } from "../editor/commands/registry";
 import type { UIStore } from "./store";
 import type { EditorConfig } from "../editor/types";
+import { reportError } from "../editor/core/logger";
+import type { I18n, I18nMessagesKey } from "../editor/core/i18n";
+import { DIALOG_WIDTH, DEFAULT_IMAGE_MAX_SIZE, DEFAULT_FILE_MAX_SIZE } from "../editor/constants";
 
 const inputClass =
   "w-full rounded border border-se-border px-2.5 py-1.5 text-[13px] text-se-ink outline-none focus:border-se-primary";
 
 /** 通用对话框壳 */
-function buildDialogShell(opts: {
-  title: string;
-  width?: number;
-  onClose: () => void;
-  onConfirm?: () => void;
-  confirmText?: string;
-  confirmDisabled?: boolean;
-}): { shell: HTMLElement; body: HTMLElement } {
+function buildDialogShell(
+  i18n: I18n,
+  opts: {
+    title: string;
+    width?: number;
+    onClose: () => void;
+    onConfirm?: () => void;
+    confirmText?: string;
+    confirmDisabled?: boolean;
+  },
+): { shell: HTMLElement; body: HTMLElement } {
   const shell = h("div", {
     className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/30",
   });
@@ -44,7 +50,7 @@ function buildDialogShell(opts: {
     type: "button",
     className: "rounded border border-se-border bg-white px-3 py-1.5 text-[13px] text-se-sub hover:bg-se-hover",
   });
-  cancelBtn.textContent = "取消";
+  cancelBtn.textContent = i18n.t("dialog.common.cancel");
   cancelBtn.addEventListener("click", opts.onClose);
   footer.appendChild(cancelBtn);
 
@@ -53,7 +59,7 @@ function buildDialogShell(opts: {
       type: "button",
       className: "rounded bg-se-primary px-3 py-1.5 text-[13px] text-white hover:bg-se-primary-text disabled:opacity-50",
     });
-    okBtn.textContent = opts.confirmText ?? "确定";
+    okBtn.textContent = opts.confirmText ?? i18n.t("dialog.common.confirm");
     okBtn.disabled = !!opts.confirmDisabled;
     okBtn.addEventListener("click", opts.onConfirm);
     footer.appendChild(okBtn);
@@ -97,13 +103,16 @@ export class DialogManager {
   private editor: Editor;
   private store: UIStore;
   private config?: EditorConfig;
+  private i18n: I18n;
   private current: HTMLElement | null = null;
   private cleanup: (() => void)[] = [];
+  private previousFocus: Element | null = null;
 
-  constructor(editor: Editor, store: UIStore, config?: EditorConfig) {
+  constructor(editor: Editor, store: UIStore, config: EditorConfig | undefined, i18n: I18n) {
     this.editor = editor;
     this.store = store;
     this.config = config;
+    this.i18n = i18n;
   }
 
   /** 清理当前对话框 DOM 与副作用，但不动 store 状态 */
@@ -118,6 +127,10 @@ export class DialogManager {
 
   open(name: string): void {
     this.dispose();
+    // 记录打开前焦点元素，关闭后恢复（仅在首次打开时记录）
+    if (this.previousFocus === null) {
+      this.previousFocus = document.activeElement;
+    }
     let shell: HTMLElement | null = null;
     if (name === "link") shell = this.buildLinkDialog();
     else if (name === "image") shell = this.buildImageDialog();
@@ -142,6 +155,7 @@ export class DialogManager {
     this.current = shell;
     document.body.appendChild(shell);
     this.cleanup.push(onEscape(() => this.close()));
+    this.cleanup.push(trapFocus(shell));
   }
 
   close(): void {
@@ -150,6 +164,11 @@ export class DialogManager {
     // 仅在确实关闭了对话框时回写状态，避免 close→closeDialog→close 的回环
     if (hadDialog) {
       this.store.closeDialog();
+      // 恢复打开前的焦点
+      if (this.previousFocus instanceof HTMLElement && document.body.contains(this.previousFocus)) {
+        this.previousFocus.focus();
+      }
+      this.previousFocus = null;
     }
   }
 
@@ -163,9 +182,9 @@ export class DialogManager {
     const { from, to, empty } = this.editor.state.selection;
     if (!empty) text = this.editor.state.doc.textBetween(from, to, " ");
 
-    const { shell, body } = buildDialogShell({
-      title: "超链接",
-      width: 440,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.link.title"),
+      width: DIALOG_WIDTH.link,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = href.trim();
@@ -189,23 +208,23 @@ export class DialogManager {
       confirmDisabled: !href.trim(),
     });
 
-    const hrefInput = buildInput({ value: href, placeholder: "https://", autoFocus: true, onInput: (v) => { href = v; } });
-    body.appendChild(buildField("链接地址", hrefInput));
-    const textInput = buildInput({ value: text, placeholder: "（可选）", onInput: (v) => { text = v; } });
-    body.appendChild(buildField("链接文本", textInput));
+    const hrefInput = buildInput({ value: href, placeholder: this.i18n.t("dialog.link.urlPlaceholder"), autoFocus: true, onInput: (v) => { href = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.link.href"), hrefInput));
+    const textInput = buildInput({ value: text, placeholder: this.i18n.t("dialog.link.textPlaceholder"), onInput: (v) => { text = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.link.text"), textInput));
 
     const radioWrap = h("div", { className: "flex gap-4 text-[13px] text-se-ink" });
-    const r1 = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="target" ${target === "_blank" ? "checked" : ""}>新窗口</label>`);
-    const r2 = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="target" ${target === "_self" ? "checked" : ""}>当前窗口</label>`);
+    const r1 = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="target" ${target === "_blank" ? "checked" : ""}>${this.i18n.t("dialog.link.targetBlank")}</label>`);
+    const r2 = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="target" ${target === "_self" ? "checked" : ""}>${this.i18n.t("dialog.link.targetSelf")}</label>`);
     (r1.querySelector("input") as HTMLInputElement).addEventListener("change", () => { target = "_blank"; });
     (r2.querySelector("input") as HTMLInputElement).addEventListener("change", () => { target = "_self"; });
     radioWrap.appendChild(r1);
     radioWrap.appendChild(r2);
-    body.appendChild(buildField("打开方式", radioWrap));
+    body.appendChild(buildField(this.i18n.t("dialog.link.target"), radioWrap));
 
     if (this.editor.isActive("link")) {
       const rmBtn = h("button", { type: "button", className: "text-[12px] text-se-primary hover:underline" });
-      rmBtn.textContent = "取消已有链接";
+      rmBtn.textContent = this.i18n.t("dialog.link.remove");
       rmBtn.addEventListener("click", () => {
         commandRegistry.run(this.editor, "link", { href: "" });
         this.close();
@@ -223,9 +242,9 @@ export class DialogManager {
     let tab: "url" | "upload" = "url";
     let uploading = false;
 
-    const { shell, body } = buildDialogShell({
-      title: "插入图片",
-      width: 460,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.image.title"),
+      width: DIALOG_WIDTH.image,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();
@@ -252,14 +271,14 @@ export class DialogManager {
               tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
             ),
           });
-          tb.textContent = t === "url" ? "网络图片" : "本地上传";
+          tb.textContent = t === "url" ? this.i18n.t("dialog.image.tabUrl") : this.i18n.t("dialog.image.tabUpload");
           tb.addEventListener("click", () => { tab = t; renderBody(); });
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
       } else {
         const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
-        tip.textContent = "未配置 imageUpload 上传接口，仅支持网络图片地址。";
+        tip.textContent = this.i18n.t("dialog.image.noUpload");
         body.appendChild(tip);
       }
 
@@ -272,27 +291,28 @@ export class DialogManager {
         }
         const statusEl = h("div", { className: "mt-1 text-[12px]" });
         const multiTip = h("div", { className: "mb-2 text-[12px] text-se-faint" });
-        multiTip.textContent = fileInput.multiple ? "可按住 Ctrl/Shift 多选，所有图片将依次插入。" : "每次仅可选择一张图片。";
+        multiTip.textContent = fileInput.multiple ? this.i18n.t("dialog.image.multiTip") : this.i18n.t("dialog.image.singleTip");
         fileInput.addEventListener("change", async () => {
           const files = Array.from(fileInput.files ?? []);
           if (files.length === 0) return;
           if (!this.config?.imageUpload) {
-            statusEl.textContent = "未配置上传能力，请使用 URL 插入。";
+            statusEl.textContent = this.i18n.t("dialog.image.noUploadAbility");
             statusEl.className = "mt-1 text-[12px] text-red-500";
             return;
           }
-          const maxSize = this.config.imageMaxSize ?? 5 * 1024 * 1024;
+          const maxSize = this.config.imageMaxSize ?? DEFAULT_IMAGE_MAX_SIZE;
+          const maxSizeMb = Math.round(maxSize / 1024 / 1024);
           // 校验所有文件
           const invalid: string[] = [];
           for (const f of files) {
             if (!f.type.startsWith("image/")) {
-              invalid.push(`${f.name}（非图片）`);
+              invalid.push(`${f.name} (${this.i18n.t("dialog.image.invalidType")})`);
             } else if (f.size > maxSize) {
-              invalid.push(`${f.name}（超过 ${Math.round(maxSize / 1024 / 1024)}MB）`);
+              invalid.push(`${f.name} (${this.i18n.t("dialog.image.invalidSize", { size: maxSizeMb })})`);
             }
           }
           if (invalid.length > 0) {
-            statusEl.textContent = `以下文件将被跳过：${invalid.join("、")}`;
+            statusEl.textContent = this.i18n.t("dialog.image.invalid", { list: invalid.join(", ") });
             statusEl.className = "mt-1 text-[12px] text-red-500";
           }
 
@@ -304,7 +324,7 @@ export class DialogManager {
           }
 
           uploading = true;
-          statusEl.textContent = `上传中… (0/${validFiles.length})`;
+          statusEl.textContent = this.i18n.t("dialog.image.uploading", { current: 0, total: validFiles.length });
           statusEl.className = "mt-1 text-[12px] text-se-primary";
           body.appendChild(statusEl);
 
@@ -313,11 +333,11 @@ export class DialogManager {
           const isMulti = validFiles.length > 1;
           try {
             const uploadFn = this.config.imageUpload;
-            if (!uploadFn) throw new Error("未配置上传能力");
+            if (!uploadFn) throw new Error(this.i18n.t("dialog.image.noUploadAbility"));
             if (!isMulti) {
               const url = await uploadFn(validFiles[0]);
               if (!url || typeof url !== "string") {
-                throw new Error("上传返回值无效");
+                throw new Error(this.i18n.t("dialog.image.invalidReturn"));
               }
               src = url;
               tab = "url";
@@ -326,10 +346,10 @@ export class DialogManager {
             } else {
               const urls: string[] = [];
               for (let i = 0; i < validFiles.length; i++) {
-                statusEl.textContent = `上传中… (${i + 1}/${validFiles.length})`;
+                statusEl.textContent = this.i18n.t("dialog.image.uploading", { current: i + 1, total: validFiles.length });
                 const url = await uploadFn(validFiles[i]);
                 if (!url || typeof url !== "string") {
-                  throw new Error(`第 ${i + 1} 张图片上传返回值无效`);
+                  throw new Error(this.i18n.t("dialog.image.invalidReturnIndex", { index: i + 1 }));
                 }
                 urls.push(url);
               }
@@ -345,54 +365,55 @@ export class DialogManager {
               this.close();
             }
           } catch (err) {
-            console.error("[sEditor] 图片上传失败:", err);
-            const msg = err instanceof Error ? err.message : "未知错误";
-            statusEl.textContent = `上传失败：${msg}。`;
+            reportError(this.config, "image-upload", err);
+            const msg = err instanceof Error ? err.message : String(err);
+            statusEl.textContent = this.i18n.t("dialog.image.uploadError", { message: msg });
             statusEl.className = "mt-1 text-[12px] text-red-500";
             uploading = false;
           }
         });
-        body.appendChild(buildField("选择文件", fileInput));
+        body.appendChild(buildField(this.i18n.t("dialog.image.fileLabel"), fileInput));
         body.appendChild(multiTip);
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-        body.appendChild(buildField("图片地址", urlInput));
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.image.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.image.urlLabel"), urlInput));
       }
 
-      const altInput = buildInput({ value: alt, placeholder: "（可选）", onInput: (v) => { alt = v; } });
-      body.appendChild(buildField("替代文本", altInput));
-      const wInput = buildInput({ value: width, placeholder: "如 400 或 100%", onInput: (v) => { width = v; } });
-      body.appendChild(buildField("宽度（px 或 %）", wInput));
+      const altInput = buildInput({ value: alt, placeholder: this.i18n.t("dialog.image.altPlaceholder"), onInput: (v) => { alt = v; } });
+      body.appendChild(buildField(this.i18n.t("dialog.image.altLabel"), altInput));
+      const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.image.widthPlaceholder"), onInput: (v) => { width = v; } });
+      body.appendChild(buildField(this.i18n.t("dialog.image.widthLabel"), wInput));
 
       const alignWrap = h("div", { className: "flex gap-4 text-[13px] text-se-ink" });
       (["left", "center", "right"] as const).forEach((a) => {
-        const lbl = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="align" ${align === a ? "checked" : ""}>${a === "left" ? "左对齐" : a === "center" ? "居中" : "右对齐"}</label>`);
+        const label = a === "left" ? this.i18n.t("dialog.image.alignLeft") : a === "center" ? this.i18n.t("dialog.image.alignCenter") : this.i18n.t("dialog.image.alignRight");
+        const lbl = fromHTML(`<label class="flex items-center gap-1.5"><input type="radio" name="align" ${align === a ? "checked" : ""}>${label}</label>`);
         (lbl.querySelector("input") as HTMLInputElement).addEventListener("change", () => { align = a; });
         alignWrap.appendChild(lbl);
       });
-      body.appendChild(buildField("对齐方式", alignWrap));
+      body.appendChild(buildField(this.i18n.t("dialog.image.align"), alignWrap));
     };
     renderBody();
     return shell;
   }
 
   private buildFileDialog(): HTMLElement {
-    const { shell, body } = buildDialogShell({
-      title: "插入文件",
-      width: 460,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.file.title"),
+      width: DIALOG_WIDTH.file,
       onClose: () => this.close(),
       onConfirm: () => {
         // 文件对话框的上传是即时的，确定按钮仅用于关闭
         this.close();
       },
-      confirmText: "关闭",
+      confirmText: this.i18n.t("dialog.file.close"),
       confirmDisabled: false,
     });
 
     if (!this.config?.fileUpload) {
       const tip = h("div", { className: "py-4 text-center text-[13px] text-se-faint" });
-      tip.textContent = "未配置 fileUpload 函数，无法使用文件上传功能。";
+      tip.textContent = this.i18n.t("dialog.file.noUpload");
       body.appendChild(tip);
       return shell;
     }
@@ -401,11 +422,13 @@ export class DialogManager {
     const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
     const listEl = h("div", { className: "mt-2 flex flex-col gap-1.5" });
     const tip = h("div", { className: "mb-2 text-[12px] text-se-faint" });
-    const maxSize = cfg.fileMaxSize ?? 20 * 1024 * 1024;
+    const maxSize = cfg.fileMaxSize ?? DEFAULT_FILE_MAX_SIZE;
+    const maxSizeMb = Math.round(maxSize / 1024 / 1024);
     const allowedExts = cfg.fileAllowedExts ?? null;
-    tip.textContent = `单文件上限 ${Math.round(maxSize / 1024 / 1024)}MB${
-      allowedExts && allowedExts.length > 0 ? `，仅支持 ${allowedExts.join("、")}` : ""
-    }。上传成功后将作为下载链接插入。`;
+    tip.textContent = this.i18n.t("dialog.file.sizeLimit", {
+      size: maxSizeMb,
+      extensions: allowedExts && allowedExts.length > 0 ? this.i18n.t("dialog.file.supportedExts", { extensions: allowedExts.join(", ") }) : "",
+    });
 
     fileInput.addEventListener("change", async () => {
       const files = Array.from(fileInput.files ?? []);
@@ -415,14 +438,14 @@ export class DialogManager {
         const nameEl = h("span", { className: "flex-1 truncate text-se-ink" });
         nameEl.textContent = file.name;
         const statusEl = h("span", { className: "ml-2 text-se-faint" });
-        statusEl.textContent = "上传中…";
+        statusEl.textContent = this.i18n.t("dialog.file.uploading");
         row.appendChild(nameEl);
         row.appendChild(statusEl);
         listEl.appendChild(row);
 
         // 校验大小
         if (file.size > maxSize) {
-          statusEl.textContent = `超过 ${Math.round(maxSize / 1024 / 1024)}MB`;
+          statusEl.textContent = this.i18n.t("dialog.file.oversize", { size: maxSizeMb });
           statusEl.className = "ml-2 text-red-500";
           continue;
         }
@@ -430,7 +453,7 @@ export class DialogManager {
         if (allowedExts && allowedExts.length > 0) {
           const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
           if (!allowedExts.includes(ext)) {
-            statusEl.textContent = `不支持 .${ext}`;
+            statusEl.textContent = this.i18n.t("dialog.file.unsupportedExt", { ext });
             statusEl.className = "ml-2 text-red-500";
             continue;
           }
@@ -438,10 +461,10 @@ export class DialogManager {
 
         try {
           const uploadFn = cfg.fileUpload;
-          if (!uploadFn) throw new Error("未配置上传能力");
+          if (!uploadFn) throw new Error(this.i18n.t("dialog.file.noUploadAbility"));
           const url = await uploadFn(file);
           if (!url || typeof url !== "string") {
-            throw new Error("上传返回值无效");
+            throw new Error(this.i18n.t("dialog.file.invalidReturn"));
           }
           // 插入文件下载链接
           commandRegistry.run(this.editor, "file", {
@@ -449,12 +472,12 @@ export class DialogManager {
             name: file.name,
             download: true,
           });
-          statusEl.textContent = "已插入";
+          statusEl.textContent = this.i18n.t("dialog.file.inserted");
           statusEl.className = "ml-2 text-green-600";
         } catch (err) {
-          console.error("[sEditor] 文件上传失败:", err);
-          const msg = err instanceof Error ? err.message : "未知错误";
-          statusEl.textContent = `失败：${msg}`;
+          reportError(this.config, "file-upload", err);
+          const msg = err instanceof Error ? err.message : String(err);
+          statusEl.textContent = this.i18n.t("dialog.file.failed", { message: msg });
           statusEl.className = "ml-2 text-red-500";
         }
       }
@@ -462,7 +485,7 @@ export class DialogManager {
       fileInput.value = "";
     });
 
-    body.appendChild(buildField("选择文件", fileInput));
+    body.appendChild(buildField(this.i18n.t("dialog.file.fileLabel"), fileInput));
     body.appendChild(tip);
     body.appendChild(listEl);
     return shell;
@@ -472,9 +495,9 @@ export class DialogManager {
     let rows = 3;
     let cols = 3;
     let withHeader = true;
-    const { shell, body } = buildDialogShell({
-      title: "插入表格",
-      width: 400,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.table.title"),
+      width: DIALOG_WIDTH.table,
       onClose: () => this.close(),
       onConfirm: () => {
         commandRegistry.run(this.editor, "table", {
@@ -490,31 +513,31 @@ export class DialogManager {
     const gap = h("div", { className: "flex gap-4" });
     const rc = h("div", { className: "flex-1" });
     const cc = h("div", { className: "flex-1" });
-    rc.appendChild(buildField("行数", rowInput));
-    cc.appendChild(buildField("列数", colInput));
+    rc.appendChild(buildField(this.i18n.t("dialog.table.rows"), rowInput));
+    cc.appendChild(buildField(this.i18n.t("dialog.table.cols"), colInput));
     gap.appendChild(rc);
     gap.appendChild(cc);
     body.appendChild(gap);
-    const chk = fromHTML(`<label class="flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox" ${withHeader ? "checked" : ""}>包含表头行</label>`);
+    const chk = fromHTML(`<label class="flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox" ${withHeader ? "checked" : ""}>${this.i18n.t("dialog.table.withHeader")}</label>`);
     (chk.querySelector("input") as HTMLInputElement).addEventListener("change", (e) => {
       withHeader = (e.target as HTMLInputElement).checked;
     });
-    body.appendChild(buildField("表头", chk));
+    body.appendChild(buildField(this.i18n.t("dialog.table.header"), chk));
     return shell;
   }
 
   private buildSpecialCharDialog(): HTMLElement {
-    const groups: { name: string; chars: string[] }[] = [
-      { name: "常用", chars: ["、", "。", "，", "；", "：", "？", "！", "「", "」", "『", "』", "〈", "〉", "《", "》", "【", "】", "〔", "〕", "—", "…", "·", "～"] },
-      { name: "数学", chars: ["±", "×", "÷", "∈", "∏", "∑", "√", "∝", "∞", "∟", "∠", "∥", "∧", "∨", "∩", "∪", "∫", "∮", "≠", "≤", "≥", "≡", "≈", "⊕"] },
-      { name: "单位", chars: ["℃", "℉", "‰", "′", "″", "§", "№", "★", "☆", "○", "●", "◎", "◇", "◆", "□", "■", "△", "▲", "▽", "▼"] },
-      { name: "箭头", chars: ["←", "↑", "→", "↓", "↔", "↕", "↖", "↗", "↘", "↙", "⇐", "⇒", "⇔"] },
-      { name: "希腊", chars: ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "λ", "μ", "ν", "ξ", "π", "ρ", "σ", "τ", "φ", "ψ", "ω", "Δ", "Σ", "Ω"] },
+    const groups: { labelKey: I18nMessagesKey; chars: string[] }[] = [
+      { labelKey: "dialog.specialChar.group.common", chars: ["、", "。", "，", "；", "：", "？", "！", "「", "」", "『", "』", "〈", "〉", "《", "》", "【", "】", "〔", "〕", "—", "…", "·", "～"] },
+      { labelKey: "dialog.specialChar.group.math", chars: ["±", "×", "÷", "∈", "∏", "∑", "√", "∝", "∞", "∟", "∠", "∥", "∧", "∨", "∩", "∪", "∫", "∮", "≠", "≤", "≥", "≡", "≈", "⊕"] },
+      { labelKey: "dialog.specialChar.group.unit", chars: ["℃", "℉", "‰", "′", "″", "§", "№", "★", "☆", "○", "●", "◎", "◇", "◆", "□", "■", "△", "▲", "▽", "▼"] },
+      { labelKey: "dialog.specialChar.group.arrow", chars: ["←", "↑", "→", "↓", "↔", "↕", "↖", "↗", "↘", "↙", "⇐", "⇒", "⇔"] },
+      { labelKey: "dialog.specialChar.group.greek", chars: ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "λ", "μ", "ν", "ξ", "π", "ρ", "σ", "τ", "φ", "ψ", "ω", "Δ", "Σ", "Ω"] },
     ];
     let group = 0;
-    const { shell, body } = buildDialogShell({
-      title: "特殊字符",
-      width: 420,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.specialChar.title"),
+      width: DIALOG_WIDTH.specialChar,
       onClose: () => this.close(),
     });
     const render = () => {
@@ -525,7 +548,7 @@ export class DialogManager {
           type: "button",
           className: cn("rounded px-2 py-1 text-[12px]", group === i ? "bg-se-primary text-white" : "text-se-sub hover:bg-se-hover"),
         });
-        tb.textContent = g.name;
+        tb.textContent = this.i18n.t(g.labelKey);
         tb.addEventListener("click", () => { group = i; render(); });
         tabBar.appendChild(tb);
       });
@@ -544,7 +567,7 @@ export class DialogManager {
       });
       body.appendChild(grid);
       const tip = h("div", { className: "mt-3 text-[12px] text-se-faint" });
-      tip.textContent = "点击字符插入，可连续插入多个。";
+      tip.textContent = this.i18n.t("dialog.specialChar.tip");
       body.appendChild(tip);
     };
     render();
@@ -561,9 +584,9 @@ export class DialogManager {
     let tab: "url" | "upload" = "url";
     let uploading = false;
 
-    const { shell, body } = buildDialogShell({
-      title: "插入视频",
-      width: 460,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.video.title"),
+      width: DIALOG_WIDTH.video,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();
@@ -588,14 +611,14 @@ export class DialogManager {
               tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
             ),
           });
-          tb.textContent = t === "url" ? "网络视频" : "本地上传";
+          tb.textContent = t === "url" ? this.i18n.t("dialog.video.tabUrl") : this.i18n.t("dialog.video.tabUpload");
           tb.addEventListener("click", () => { tab = t; renderBody(); });
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
       } else {
         const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
-        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络视频地址。";
+        tip.textContent = this.i18n.t("dialog.video.noUpload");
         body.appendChild(tip);
       }
 
@@ -608,7 +631,7 @@ export class DialogManager {
           if (files.length === 0) return;
           if (!this.config?.fileUpload) return;
           uploading = true;
-          statusEl.textContent = "上传中…";
+          statusEl.textContent = this.i18n.t("dialog.common.uploading");
           statusEl.className = "mt-1 text-[12px] text-se-primary";
           try {
             const url = await this.config.fileUpload(files[0]);
@@ -617,21 +640,21 @@ export class DialogManager {
             uploading = false;
             renderBody();
           } catch (err) {
-            console.error("[sEditor] 视频上传失败:", err);
-            const msg = err instanceof Error ? err.message : "未知错误";
-            statusEl.textContent = `上传失败：${msg}`;
+            reportError(this.config, "video-upload", err);
+            const msg = err instanceof Error ? err.message : String(err);
+            statusEl.textContent = this.i18n.t("dialog.common.uploadError", { message: msg });
             statusEl.className = "mt-1 text-[12px] text-red-500";
             uploading = false;
           }
         });
-        body.appendChild(buildField("选择视频文件", fileInput));
+        body.appendChild(buildField(this.i18n.t("dialog.video.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-        body.appendChild(buildField("视频地址", urlInput));
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.video.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.video.urlLabel"), urlInput));
       }
-      const wInput = buildInput({ value: width, placeholder: "如 480 或 100%", onInput: (v) => { width = v; } });
-      body.appendChild(buildField("宽度（px 或 %，可选）", wInput));
+      const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.video.widthPlaceholder"), onInput: (v) => { width = v; } });
+      body.appendChild(buildField(this.i18n.t("dialog.video.widthLabel"), wInput));
     };
     renderBody();
     return shell;
@@ -642,9 +665,9 @@ export class DialogManager {
     let tab: "url" | "upload" = "url";
     let uploading = false;
 
-    const { shell, body } = buildDialogShell({
-      title: "插入音频",
-      width: 440,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.audio.title"),
+      width: DIALOG_WIDTH.audio,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();
@@ -667,14 +690,14 @@ export class DialogManager {
               tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
             ),
           });
-          tb.textContent = t === "url" ? "网络音频" : "本地上传";
+          tb.textContent = t === "url" ? this.i18n.t("dialog.audio.tabUrl") : this.i18n.t("dialog.audio.tabUpload");
           tb.addEventListener("click", () => { tab = t; renderBody(); });
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
       } else {
         const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
-        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络音频地址。";
+        tip.textContent = this.i18n.t("dialog.audio.noUpload");
         body.appendChild(tip);
       }
 
@@ -687,7 +710,7 @@ export class DialogManager {
           if (files.length === 0) return;
           if (!this.config?.fileUpload) return;
           uploading = true;
-          statusEl.textContent = "上传中…";
+          statusEl.textContent = this.i18n.t("dialog.common.uploading");
           statusEl.className = "mt-1 text-[12px] text-se-primary";
           try {
             const url = await this.config.fileUpload(files[0]);
@@ -696,18 +719,18 @@ export class DialogManager {
             uploading = false;
             renderBody();
           } catch (err) {
-            console.error("[sEditor] 音频上传失败:", err);
-            const msg = err instanceof Error ? err.message : "未知错误";
-            statusEl.textContent = `上传失败：${msg}`;
+            reportError(this.config, "audio-upload", err);
+            const msg = err instanceof Error ? err.message : String(err);
+            statusEl.textContent = this.i18n.t("dialog.common.uploadError", { message: msg });
             statusEl.className = "mt-1 text-[12px] text-red-500";
             uploading = false;
           }
         });
-        body.appendChild(buildField("选择音频文件", fileInput));
+        body.appendChild(buildField(this.i18n.t("dialog.audio.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-        body.appendChild(buildField("音频地址", urlInput));
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.audio.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.audio.urlLabel"), urlInput));
       }
     };
     renderBody();
@@ -715,17 +738,17 @@ export class DialogManager {
   }
 
   private buildEmojiDialog(): HTMLElement {
-    const groups: { name: string; chars: string[] }[] = [
-      { name: "表情", chars: ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "🙁", "😐", "😶", "😏", "😣", "😥", "😮", "🤐", "😯", "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓", "😔", "😕", "🙃", "🤑", "😲"] },
-      { name: "手势", chars: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤙", "💪", "🙏", "👏", "🙌", "👐", "🤲"] },
-      { name: "动物", chars: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉", "🐺", "🐗", "🐴", "🦄"] },
-      { name: "食物", chars: ["🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥕", "🌽", "🌶️", "🥔", "🍠"] },
-      { name: "物品", chars: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "🔥", "⭐", "🌟", "✨", "⚡", "💥"] },
+    const groups: { labelKey: I18nMessagesKey; chars: string[] }[] = [
+      { labelKey: "dialog.emoji.group.emoji", chars: ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "🙁", "😐", "😶", "😏", "😣", "😥", "😮", "🤐", "😯", "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓", "😔", "😕", "🙃", "🤑", "😲"] },
+      { labelKey: "dialog.emoji.group.gesture", chars: ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤙", "💪", "🙏", "👏", "🙌", "👐", "🤲"] },
+      { labelKey: "dialog.emoji.group.animal", chars: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉", "🐺", "🐗", "🐴", "🦄"] },
+      { labelKey: "dialog.emoji.group.food", chars: ["🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥕", "🌽", "🌶️", "🥔", "🍠"] },
+      { labelKey: "dialog.emoji.group.object", chars: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "🔥", "⭐", "🌟", "✨", "⚡", "💥"] },
     ];
     let group = 0;
-    const { shell, body } = buildDialogShell({
-      title: "Emoji 表情",
-      width: 420,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.emoji.title"),
+      width: DIALOG_WIDTH.emoji,
       onClose: () => this.close(),
     });
     const render = () => {
@@ -736,7 +759,7 @@ export class DialogManager {
           type: "button",
           className: cn("rounded px-2 py-1 text-[12px]", group === i ? "bg-se-primary text-white" : "text-se-sub hover:bg-se-hover"),
         });
-        tb.textContent = g.name;
+        tb.textContent = this.i18n.t(g.labelKey);
         tb.addEventListener("click", () => { group = i; render(); });
         tabBar.appendChild(tb);
       });
@@ -766,28 +789,28 @@ export class DialogManager {
     let currentIndex = -1;
     const matches: { from: number; to: number }[] = [];
 
-    const { shell, body } = buildDialogShell({
-      title: "查找与替换",
-      width: 440,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.findReplace.title"),
+      width: DIALOG_WIDTH.findReplace,
       onClose: () => this.close(),
     });
 
     const findInput = buildInput({
       value: findText,
-      placeholder: "输入要查找的内容",
+      placeholder: this.i18n.t("dialog.findReplace.findPlaceholder"),
       autoFocus: true,
       onInput: (v) => { findText = v; },
     });
     const replaceInput = buildInput({
       value: replaceText,
-      placeholder: "输入替换为的内容",
+      placeholder: this.i18n.t("dialog.findReplace.replacePlaceholder"),
       onInput: (v) => { replaceText = v; },
     });
 
-    body.appendChild(buildField("查找", findInput));
-    body.appendChild(buildField("替换为", replaceInput));
+    body.appendChild(buildField(this.i18n.t("dialog.findReplace.find"), findInput));
+    body.appendChild(buildField(this.i18n.t("dialog.findReplace.replace"), replaceInput));
 
-    const caseChk = fromHTML(`<label class="flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox">区分大小写</label>`);
+    const caseChk = fromHTML(`<label class="flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox">${this.i18n.t("dialog.findReplace.matchCase")}</label>`);
     (caseChk.querySelector("input") as HTMLInputElement).addEventListener("change", (e) => {
       matchCase = (e.target as HTMLInputElement).checked;
     });
@@ -818,7 +841,7 @@ export class DialogManager {
           if (m.index === re.lastIndex) re.lastIndex++;
         }
       });
-      statusEl.textContent = matches.length > 0 ? `找到 ${matches.length} 处匹配` : "未找到匹配";
+      statusEl.textContent = matches.length > 0 ? this.i18n.t("dialog.findReplace.found", { count: matches.length }) : this.i18n.t("dialog.findReplace.notFound");
     };
 
     const highlightMatch = (idx: number) => {
@@ -828,7 +851,7 @@ export class DialogManager {
       // 滚动到选区
       const view = this.editor.view;
       view.dispatch(view.state.tr.scrollIntoView());
-      statusEl.textContent = `第 ${idx + 1} / ${matches.length} 处`;
+      statusEl.textContent = this.i18n.t("dialog.findReplace.current", { current: idx + 1, total: matches.length });
     };
 
     const findNext = () => {
@@ -860,7 +883,7 @@ export class DialogManager {
       collectMatches();
       if (matches.length === 0) {
         currentIndex = -1;
-        statusEl.textContent = "全部替换完成";
+        statusEl.textContent = this.i18n.t("dialog.findReplace.allDone");
         return;
       }
       if (currentIndex >= matches.length) currentIndex = 0;
@@ -879,7 +902,7 @@ export class DialogManager {
         this.editor.view.dispatch(tr);
         count++;
       });
-      statusEl.textContent = `已替换 ${count} 处`;
+      statusEl.textContent = this.i18n.t("dialog.findReplace.replacedAll", { count });
       matches.length = 0;
       currentIndex = -1;
     };
@@ -899,9 +922,9 @@ export class DialogManager {
       b.addEventListener("click", onClick);
       return b;
     };
-    btnRow.appendChild(makeBtn("查找下一个", findNext));
-    btnRow.appendChild(makeBtn("替换", replaceCurrent));
-    btnRow.appendChild(makeBtn("全部替换", replaceAll, true));
+    btnRow.appendChild(makeBtn(this.i18n.t("dialog.findReplace.findNext"), findNext));
+    btnRow.appendChild(makeBtn(this.i18n.t("dialog.findReplace.replaceBtn"), replaceCurrent));
+    btnRow.appendChild(makeBtn(this.i18n.t("dialog.findReplace.replaceAll"), replaceAll, true));
     body.appendChild(btnRow);
 
     return shell;
@@ -912,9 +935,9 @@ export class DialogManager {
     let width = "100%";
     let height = "300";
 
-    const { shell, body } = buildDialogShell({
-      title: "插入 iframe",
-      width: 440,
+    const { shell, body } = buildDialogShell(this.i18n, {
+      title: this.i18n.t("dialog.iframe.title"),
+      width: DIALOG_WIDTH.iframe,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();
@@ -925,12 +948,12 @@ export class DialogManager {
       confirmDisabled: !src.trim(),
     });
 
-    const srcInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-    body.appendChild(buildField("页面地址", srcInput));
-    const wInput = buildInput({ value: width, placeholder: "如 100% 或 480", onInput: (v) => { width = v; } });
-    body.appendChild(buildField("宽度", wInput));
-    const hInput = buildInput({ value: height, placeholder: "如 300", onInput: (v) => { height = v; } });
-    body.appendChild(buildField("高度", hInput));
+    const srcInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.iframe.srcPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.iframe.src"), srcInput));
+    const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.iframe.widthPlaceholder"), onInput: (v) => { width = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.iframe.width"), wInput));
+    const hInput = buildInput({ value: height, placeholder: this.i18n.t("dialog.iframe.heightPlaceholder"), onInput: (v) => { height = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.iframe.height"), hInput));
 
     return shell;
   }
@@ -939,9 +962,9 @@ export class DialogManager {
     let id = "";
     let name = "";
 
-    const { shell, body } = buildDialogShell({
+    const { shell, body } = buildDialogShell(this.i18n, {
       title: "插入锚点",
-      width: 420,
+      width: DIALOG_WIDTH.anchor,
       onClose: () => this.close(),
       onConfirm: () => {
         const anchorId = id.trim();
@@ -967,9 +990,9 @@ export class DialogManager {
     let tab: "url" | "upload" = "url";
     let uploading = false;
 
-    const { shell, body } = buildDialogShell({
+    const { shell, body } = buildDialogShell(this.i18n, {
       title: "插入音乐",
-      width: 460,
+      width: DIALOG_WIDTH.music,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();
@@ -996,14 +1019,14 @@ export class DialogManager {
               tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
             ),
           });
-          tb.textContent = t === "url" ? "网络音频" : "本地上传";
+          tb.textContent = t === "url" ? this.i18n.t("dialog.audio.tabUrl") : this.i18n.t("dialog.audio.tabUpload");
           tb.addEventListener("click", () => { tab = t; renderBody(); });
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
       } else {
         const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
-        tip.textContent = "未配置 fileUpload 上传接口，仅支持网络音频地址。";
+        tip.textContent = this.i18n.t("dialog.audio.noUpload");
         body.appendChild(tip);
       }
 
@@ -1025,7 +1048,7 @@ export class DialogManager {
             uploading = false;
             renderBody();
           } catch (err) {
-            console.error("[sEditor] 音乐上传失败:", err);
+            reportError(this.config, "music-upload", err);
             const msg = err instanceof Error ? err.message : "未知错误";
             statusEl.textContent = `上传失败：${msg}`;
             statusEl.className = "mt-1 text-[12px] text-red-500";
@@ -1054,9 +1077,9 @@ export class DialogManager {
     let values = "";
     let colors = "";
 
-    const { shell, body } = buildDialogShell({
+    const { shell, body } = buildDialogShell(this.i18n, {
       title: "插入图表",
-      width: 460,
+      width: DIALOG_WIDTH.chart,
       onClose: () => this.close(),
       onConfirm: () => {
         if (!values.trim()) return;
@@ -1091,9 +1114,9 @@ export class DialogManager {
     const width = 600;
     const height = 300;
 
-    const { shell, body } = buildDialogShell({
+    const { shell, body } = buildDialogShell(this.i18n, {
       title: "涂鸦",
-      width: 660,
+      width: DIALOG_WIDTH.graffiti,
       onClose: () => this.close(),
       onConfirm: () => {
         if (dataUrl) commandRegistry.run(this.editor, "graffiti", dataUrl);
@@ -1197,9 +1220,9 @@ export class DialogManager {
   private buildRemoteImageDialog(): HTMLElement {
     let src = "";
 
-    const { shell, body } = buildDialogShell({
+    const { shell, body } = buildDialogShell(this.i18n, {
       title: "远程图片",
-      width: 440,
+      width: DIALOG_WIDTH.remoteImage,
       onClose: () => this.close(),
       onConfirm: () => {
         const url = src.trim();

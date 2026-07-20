@@ -1,4 +1,6 @@
 import type { Editor } from "@tiptap/core";
+import type { ErrorContext } from "./core/logger";
+import type { I18nMessages } from "./core/i18n";
 
 /** 编辑器对外配置 */
 export interface EditorConfig {
@@ -26,9 +28,15 @@ export interface EditorConfig {
   draftInterval?: number;
   /** 主题：light / dark / auto。auto 跟随系统。默认 light */
   theme?: "light" | "dark" | "auto";
+  /** 界面语言标识，当前仅作为元数据，配合 localeData 使用 */
+  locale?: string;
+  /** 自定义翻译覆盖，key 见 editor/core/i18n.ts */
+  localeData?: Partial<I18nMessages>;
   onChange?: (html: string) => void;
   /** 编辑器实例就绪后回调（浏览器打包场景下用于获取 Editor 实例） */
   onEditorReady?: (editor: Editor) => void;
+  /** 错误回调，上传/导出等异常时触发。未配置时降级到 console.error */
+  onError?: (error: Error, context: ErrorContext) => void;
 }
 
 /** 统一命令抽象：工具栏按钮通过命令名驱动编辑器 */

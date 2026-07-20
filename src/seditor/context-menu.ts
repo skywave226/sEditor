@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { h, onClickOutside, onEscape } from "./dom";
 import type { UIStore } from "./store";
+import type { I18n } from "../editor/core/i18n";
 
 /** 兼容性兜底：通过临时 textarea 选中文本后执行 copy */
 function fallbackCopyToClipboard(text: string): void {
@@ -22,12 +23,14 @@ function fallbackCopyToClipboard(text: string): void {
 export class ContextMenu {
   private editor: Editor;
   private store: UIStore;
+  private i18n: I18n;
   private el: HTMLElement | null = null;
   private cleanup: (() => void)[] = [];
 
-  constructor(editor: Editor, store: UIStore) {
+  constructor(editor: Editor, store: UIStore, i18n: I18n) {
     this.editor = editor;
     this.store = store;
+    this.i18n = i18n;
   }
 
   private buildItem(label: string, onClick: () => void): HTMLElement {
@@ -117,11 +120,11 @@ export class ContextMenu {
     (el as HTMLElement).style.top = `${y}px`;
     el.addEventListener("mousedown", (e) => e.stopPropagation());
 
-    el.appendChild(this.buildItem("剪切", () => this.cutSelection()));
-    el.appendChild(this.buildItem("复制", () => this.copySelection()));
-    el.appendChild(this.buildItem("粘贴", () => this.pasteFromClipboard()));
+    el.appendChild(this.buildItem(this.i18n.t("contextMenu.cut"), () => this.cutSelection()));
+    el.appendChild(this.buildItem(this.i18n.t("contextMenu.copy"), () => this.copySelection()));
+    el.appendChild(this.buildItem(this.i18n.t("contextMenu.paste"), () => this.pasteFromClipboard()));
     el.appendChild(this.buildDivider());
-    el.appendChild(this.buildItem("全选", () => this.editor.chain().focus().selectAll().run()));
+    el.appendChild(this.buildItem(this.i18n.t("contextMenu.selectAll"), () => this.editor.chain().focus().selectAll().run()));
 
     const inLink = this.editor.isActive("link");
     const inTable = this.editor.isActive("table");
@@ -129,22 +132,22 @@ export class ContextMenu {
 
     if (inLink) {
       el.appendChild(this.buildDivider());
-      el.appendChild(this.buildItem("编辑链接", () => this.store.openDialog("link")));
-      el.appendChild(this.buildItem("取消链接", () => this.editor.chain().focus().unsetLink().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.editLink"), () => this.store.openDialog("link")));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.unlink"), () => this.editor.chain().focus().unsetLink().run()));
     }
 
     if (inTable && inCell) {
       el.appendChild(this.buildDivider());
-      el.appendChild(this.buildItem("上方插入行", () => this.editor.chain().focus().addRowBefore().run()));
-      el.appendChild(this.buildItem("下方插入行", () => this.editor.chain().focus().addRowAfter().run()));
-      el.appendChild(this.buildItem("左侧插入列", () => this.editor.chain().focus().addColumnBefore().run()));
-      el.appendChild(this.buildItem("右侧插入列", () => this.editor.chain().focus().addColumnAfter().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.addRowBefore"), () => this.editor.chain().focus().addRowBefore().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.addRowAfter"), () => this.editor.chain().focus().addRowAfter().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.addColumnBefore"), () => this.editor.chain().focus().addColumnBefore().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.addColumnAfter"), () => this.editor.chain().focus().addColumnAfter().run()));
       el.appendChild(this.buildDivider());
-      el.appendChild(this.buildItem("删除行", () => this.editor.chain().focus().deleteRow().run()));
-      el.appendChild(this.buildItem("删除列", () => this.editor.chain().focus().deleteColumn().run()));
-      el.appendChild(this.buildItem("合并单元格", () => this.editor.chain().focus().mergeCells().run()));
-      el.appendChild(this.buildItem("拆分单元格", () => this.editor.chain().focus().splitCell().run()));
-      el.appendChild(this.buildItem("删除表格", () => this.editor.chain().focus().deleteTable().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.deleteRow"), () => this.editor.chain().focus().deleteRow().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.deleteColumn"), () => this.editor.chain().focus().deleteColumn().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.mergeCells"), () => this.editor.chain().focus().mergeCells().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.splitCell"), () => this.editor.chain().focus().splitCell().run()));
+      el.appendChild(this.buildItem(this.i18n.t("contextMenu.deleteTable"), () => this.editor.chain().focus().deleteTable().run()));
     }
 
     this.el = el;

@@ -7,6 +7,8 @@
  * 所有导出都通过 Blob + 临时 <a> 触发下载，或新窗口打印。
  */
 
+import { sanitizeForExport } from "../editor/core/sanitize";
+
 /** 下载文本为文件 */
 function downloadBlob(filename: string, content: string, mime: string): void {
   const blob = new Blob([content], { type: mime });
@@ -131,6 +133,7 @@ export function exportMarkdown(html: string, filename = "seditor-export.md"): vo
  * Word 可打开带 Microsoft Office 命名空间的 HTML，存为 .doc 即可。
  */
 export function exportWord(html: string, filename = "seditor-export.doc"): void {
+  const safe = sanitizeForExport(html);
   const wrapped = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -152,7 +155,7 @@ export function exportWord(html: string, filename = "seditor-export.doc"): void 
     td, th { border: 1px solid #888; padding: 4px 8px; }
   </style>
 </head>
-<body>${html}</body>
+<body>${safe}</body>
 </html>`;
   downloadBlob(filename, wrapped, "application/msword");
 }
@@ -161,6 +164,7 @@ export function exportWord(html: string, filename = "seditor-export.doc"): void 
  * 导出为 PDF（通过浏览器打印对话框，用户选择「另存为 PDF」）
  */
 export function exportPDF(html: string, filename = "seditor-export"): void {
+  const safe = sanitizeForExport(html);
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) {
     alert("[sEditor] 弹出打印窗口被浏览器拦截，请允许弹窗后重试。");
@@ -183,7 +187,7 @@ export function exportPDF(html: string, filename = "seditor-export"): void {
     @media print { body { padding: 0; } }
   </style>
 </head>
-<body>${html}</body>
+<body>${safe}</body>
 </html>`);
   win.document.close();
   // 等待内容渲染后调用打印

@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { cn, h } from "./dom";
 import { getIcon } from "./icons";
 import { onClickOutside, onEscape } from "./dom";
+import type { I18n } from "../editor/core/i18n";
 
 /**
  * 链接编辑浮层
@@ -13,12 +14,14 @@ import { onClickOutside, onEscape } from "./dom";
  */
 export class LinkBubble {
   private editor: Editor;
+  private i18n: I18n;
   private el: HTMLElement;
   private visible = false;
   private cleanup: (() => void)[] = [];
 
-  constructor(editor: Editor) {
+  constructor(editor: Editor, i18n: I18n) {
     this.editor = editor;
+    this.i18n = i18n;
     this.el = this.build();
     this.el.style.display = "none";
     document.body.appendChild(this.el);
@@ -46,7 +49,7 @@ export class LinkBubble {
     // 编辑按钮
     const editBtn = h("button", {
       type: "button",
-      title: "编辑链接",
+      title: this.i18n.t("linkBubble.edit"),
       className: cn(
         "flex h-6 w-6 shrink-0 items-center justify-center rounded text-se-ink hover:bg-se-hover",
       ),
@@ -65,7 +68,7 @@ export class LinkBubble {
     // 取消链接按钮
     const unlinkBtn = h("button", {
       type: "button",
-      title: "取消链接",
+      title: this.i18n.t("linkBubble.unlink"),
       className: cn(
         "flex h-6 w-6 shrink-0 items-center justify-center rounded text-se-ink hover:bg-se-hover",
       ),
