@@ -963,7 +963,7 @@ export class DialogManager {
     let name = "";
 
     const { shell, body } = buildDialogShell(this.i18n, {
-      title: "插入锚点",
+      title: this.i18n.t("dialog.anchor.title"),
       width: DIALOG_WIDTH.anchor,
       onClose: () => this.close(),
       onConfirm: () => {
@@ -975,10 +975,10 @@ export class DialogManager {
       confirmDisabled: !id.trim(),
     });
 
-    const idInput = buildInput({ value: id, placeholder: "唯一标识，如 section-1", autoFocus: true, onInput: (v) => { id = v; } });
-    body.appendChild(buildField("锚点 ID", idInput));
-    const nameInput = buildInput({ value: name, placeholder: "（可选）显示名称", onInput: (v) => { name = v; } });
-    body.appendChild(buildField("名称", nameInput));
+    const idInput = buildInput({ value: id, placeholder: this.i18n.t("dialog.anchor.idPlaceholder"), autoFocus: true, onInput: (v) => { id = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.anchor.id"), idInput));
+    const nameInput = buildInput({ value: name, placeholder: this.i18n.t("dialog.anchor.namePlaceholder"), onInput: (v) => { name = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.anchor.name"), nameInput));
 
     return shell;
   }
@@ -991,7 +991,7 @@ export class DialogManager {
     let uploading = false;
 
     const { shell, body } = buildDialogShell(this.i18n, {
-      title: "插入音乐",
+      title: this.i18n.t("dialog.music.title"),
       width: DIALOG_WIDTH.music,
       onClose: () => this.close(),
       onConfirm: () => {
@@ -1019,14 +1019,14 @@ export class DialogManager {
               tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
             ),
           });
-          tb.textContent = t === "url" ? this.i18n.t("dialog.audio.tabUrl") : this.i18n.t("dialog.audio.tabUpload");
+          tb.textContent = t === "url" ? this.i18n.t("dialog.music.tabUrl") : this.i18n.t("dialog.music.tabUpload");
           tb.addEventListener("click", () => { tab = t; renderBody(); });
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
       } else {
         const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
-        tip.textContent = this.i18n.t("dialog.audio.noUpload");
+        tip.textContent = this.i18n.t("dialog.music.noUpload");
         body.appendChild(tip);
       }
 
@@ -1039,7 +1039,7 @@ export class DialogManager {
           if (files.length === 0) return;
           if (!this.config?.fileUpload) return;
           uploading = true;
-          statusEl.textContent = "上传中…";
+          statusEl.textContent = this.i18n.t("dialog.common.uploading");
           statusEl.className = "mt-1 text-[12px] text-se-primary";
           try {
             const url = await this.config.fileUpload(files[0]);
@@ -1049,21 +1049,21 @@ export class DialogManager {
             renderBody();
           } catch (err) {
             reportError(this.config, "music-upload", err);
-            const msg = err instanceof Error ? err.message : "未知错误";
-            statusEl.textContent = `上传失败：${msg}`;
+            const msg = err instanceof Error ? err.message : String(err);
+            statusEl.textContent = this.i18n.t("dialog.common.uploadError", { message: msg });
             statusEl.className = "mt-1 text-[12px] text-red-500";
             uploading = false;
           }
         });
-        body.appendChild(buildField("选择音乐文件", fileInput));
+        body.appendChild(buildField(this.i18n.t("dialog.music.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-        body.appendChild(buildField("音频地址", urlInput));
-        const nameInput = buildInput({ value: name, placeholder: "（可选）歌曲名称", onInput: (v) => { name = v; } });
-        body.appendChild(buildField("名称", nameInput));
-        const artistInput = buildInput({ value: artist, placeholder: "（可选）艺术家", onInput: (v) => { artist = v; } });
-        body.appendChild(buildField("艺术家", artistInput));
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.music.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.music.urlLabel"), urlInput));
+        const nameInput = buildInput({ value: name, placeholder: this.i18n.t("dialog.music.namePlaceholder"), onInput: (v) => { name = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.music.name"), nameInput));
+        const artistInput = buildInput({ value: artist, placeholder: this.i18n.t("dialog.music.artistPlaceholder"), onInput: (v) => { artist = v; } });
+        body.appendChild(buildField(this.i18n.t("dialog.music.artist"), artistInput));
       }
     };
     renderBody();
@@ -1078,7 +1078,7 @@ export class DialogManager {
     let colors = "";
 
     const { shell, body } = buildDialogShell(this.i18n, {
-      title: "插入图表",
+      title: this.i18n.t("dialog.chart.title"),
       width: DIALOG_WIDTH.chart,
       onClose: () => this.close(),
       onConfirm: () => {
@@ -1093,16 +1093,16 @@ export class DialogManager {
     (["bar", "line", "pie"] as const).forEach((t) => {
       const opt = h("option") as HTMLOptionElement;
       opt.value = t;
-      opt.textContent = t === "bar" ? "柱状图" : t === "line" ? "折线图" : "饼图";
+      opt.textContent = t === "bar" ? this.i18n.t("dialog.chart.typeBar") : t === "line" ? this.i18n.t("dialog.chart.typeLine") : this.i18n.t("dialog.chart.typePie");
       typeSelect.appendChild(opt);
     });
     typeSelect.addEventListener("change", () => { type = typeSelect.value as "bar" | "line" | "pie"; });
-    body.appendChild(buildField("图表类型", typeSelect));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.type"), typeSelect));
 
-    body.appendChild(buildField("标题", buildInput({ value: title, placeholder: "（可选）", onInput: (v) => { title = v; } })));
-    body.appendChild(buildField("标签（逗号分隔）", buildInput({ value: labels, placeholder: "如 一月,二月,三月", onInput: (v) => { labels = v; } })));
-    body.appendChild(buildField("数值（逗号分隔）", buildInput({ value: values, placeholder: "如 10,20,30", autoFocus: true, onInput: (v) => { values = v; } })));
-    body.appendChild(buildField("颜色（逗号分隔，可选）", buildInput({ value: colors, placeholder: "如 #3b82f6,#ef4444", onInput: (v) => { colors = v; } })));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.titleLabel"), buildInput({ value: title, placeholder: this.i18n.t("dialog.chart.titlePlaceholder"), onInput: (v) => { title = v; } })));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.labels"), buildInput({ value: labels, placeholder: this.i18n.t("dialog.chart.labelsPlaceholder"), onInput: (v) => { labels = v; } })));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.values"), buildInput({ value: values, placeholder: this.i18n.t("dialog.chart.valuesPlaceholder"), autoFocus: true, onInput: (v) => { values = v; } })));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.colors"), buildInput({ value: colors, placeholder: this.i18n.t("dialog.chart.colorsPlaceholder"), onInput: (v) => { colors = v; } })));
 
     return shell;
   }
@@ -1115,7 +1115,7 @@ export class DialogManager {
     const height = 300;
 
     const { shell, body } = buildDialogShell(this.i18n, {
-      title: "涂鸦",
+      title: this.i18n.t("dialog.graffiti.title"),
       width: DIALOG_WIDTH.graffiti,
       onClose: () => this.close(),
       onConfirm: () => {
@@ -1203,7 +1203,7 @@ export class DialogManager {
       type: "button",
       className: "rounded border border-se-border bg-white px-3 py-1 text-[13px] text-se-sub hover:bg-se-hover",
     });
-    clearBtn.textContent = "清空";
+    clearBtn.textContent = this.i18n.t("dialog.graffiti.clear");
     clearBtn.addEventListener("click", () => {
       if (ctx) ctx.clearRect(0, 0, width, height);
       dataUrl = "";
@@ -1221,7 +1221,7 @@ export class DialogManager {
     let src = "";
 
     const { shell, body } = buildDialogShell(this.i18n, {
-      title: "远程图片",
+      title: this.i18n.t("dialog.remoteImage.title"),
       width: DIALOG_WIDTH.remoteImage,
       onClose: () => this.close(),
       onConfirm: () => {
@@ -1233,10 +1233,10 @@ export class DialogManager {
       confirmDisabled: !src.trim(),
     });
 
-    const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
-    body.appendChild(buildField("图片地址", urlInput));
+    const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.remoteImage.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+    body.appendChild(buildField(this.i18n.t("dialog.remoteImage.urlLabel"), urlInput));
     const tip = h("div", { className: "mt-2 text-[12px] text-se-faint" });
-    tip.textContent = "会尝试下载图片并转为本地 dataURL，受目标站 CORS 策略限制。";
+    tip.textContent = this.i18n.t("dialog.remoteImage.tip");
     body.appendChild(tip);
 
     return shell;
