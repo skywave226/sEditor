@@ -1,5 +1,26 @@
 # 更新说明
 
+## [2.6.0] - 2026-07-20
+
+### 新增
+- **音乐插入**：新增 `Music` 节点，支持音频地址、歌曲名、艺术家；工具栏新增「音乐」按钮与对话框。
+- **图表插入**：新增 `Chart` 节点，支持柱状图 / 折线图 / 饼图，根据 labels / values 渲染为内联 SVG 图片；工具栏新增「图表」按钮与对话框。
+- **屏幕截图**：新增 `screenshot` 命令，调用浏览器 `getDisplayMedia` 捕获屏幕并插入为图片。
+- **涂鸦**：新增 `graffiti` 命令与对话框，提供画布、颜色、笔刷、清空，确认后插入为图片。
+- **远程图片**：新增 `remoteImage` 命令与对话框，尝试下载远程图片并转为 dataURL 插入。
+- **保存图片**：新增 `saveImage` 命令，将当前选中的图片下载到本地。
+- **文档模板**：新增 `templates.ts` 与 `insertTemplate` 命令，工具栏新增「模板」下拉，可插入两栏文本、提示框、警告框、引用块、代码卡片等预设 HTML。
+- **元素路径**：状态栏 `StatusBar` 已显示当前光标所在块级节点路径与激活 marks。
+- **工程配置**：`EditorConfig` 已补齐图片上传、文件上传、多图上传、自动保存草稿、主题、高度、工具栏自定义、响应式折叠、生命周期回调等配置项。
+
+### 变更
+- `src/editor/core/extensions.ts` 注册 `Music` / `Chart`。
+- `src/editor/commands/definitions.ts` 注册 v2.6.0 全部命令。
+- `src/seditor/toolbar.ts` / `src/seditor/icons.ts` / `src/seditor/dialogs.ts` 增加对应按钮、图标与音乐 / 图表 / 涂鸦 / 远程图片对话框。
+- `package.json` / `index.js` / `index.d.ts` 版本升至 2.6.0，并补齐 `draftKey` / `draftInterval` / `theme` 与实例 API 类型声明。
+
+---
+
 ## [2.5.0] - 2026-07-20
 
 ### 新增

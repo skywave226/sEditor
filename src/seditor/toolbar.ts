@@ -9,9 +9,13 @@ import {
   getHighlightColors,
   getLineHeights,
 } from "../editor/runtime-config";
+import { defaultTemplates } from "../editor/core/templates";
 import type { UIStore } from "./store";
 
-const DIALOG_COMMANDS = new Set(["link", "image", "file", "table", "specialChar", "video", "audio", "emoji", "findReplace", "iframe", "anchor"]);
+const DIALOG_COMMANDS = new Set([
+  "link", "image", "file", "table", "specialChar", "video", "audio", "emoji",
+  "findReplace", "iframe", "anchor", "music", "chart", "graffiti", "remoteImage",
+]);
 
 const PARAGRAPH_SPACING_OPTIONS = [
   { label: "默认", value: "" },
@@ -115,6 +119,15 @@ const toolbarGroups: ToolbarItemConfig[][] = [
     { type: "button", id: "horizontalRule", label: "分割线 (---)", command: "horizontalRule", icon: "minus" },
     { type: "button", id: "specialChar", label: "特殊字符", command: "specialChar", icon: "caseSensitive" },
     { type: "button", id: "emoji", label: "Emoji 表情", command: "emoji", icon: "emoji" },
+  ],
+  [
+    { type: "button", id: "music", label: "音乐", command: "music", icon: "music" },
+    { type: "button", id: "chart", label: "图表", command: "chart", icon: "chart" },
+    { type: "button", id: "screenshot", label: "截图", command: "screenshot", icon: "screenshot" },
+    { type: "button", id: "graffiti", label: "涂鸦", command: "graffiti", icon: "graffiti" },
+    { type: "button", id: "remoteImage", label: "远程图片", command: "remoteImage", icon: "remoteImage" },
+    { type: "button", id: "saveImage", label: "保存图片", command: "saveImage", icon: "saveImage" },
+    { type: "dropdown", id: "template", dropdown: "template", label: "模板", width: 80 },
   ],
   [
     { type: "button", id: "insertTime", label: "插入时间", command: "insertTime", icon: "clock" },
@@ -485,6 +498,8 @@ export class Toolbar {
       this.buildTextCasePanel(panel, close);
     } else if (kind === "backgroundColor") {
       this.buildBackgroundColorPanel(panel, close);
+    } else if (kind === "template") {
+      this.buildTemplatePanel(panel, close);
     } else {
       return null;
     }
@@ -614,6 +629,19 @@ export class Toolbar {
     });
     wrap.appendChild(clearBtn);
     panel.appendChild(wrap);
+    panel.style.minWidth = "140px";
+  }
+
+  private buildTemplatePanel(panel: HTMLElement, close: () => void): void {
+    const inner = h("div", { className: "py-1" });
+    defaultTemplates.forEach((tpl) => {
+      const item = this.buildMenuItem(tpl.name, false, () => {
+        commandRegistry.run(this.editor, "insertTemplate", tpl.html);
+        close();
+      });
+      inner.appendChild(item);
+    });
+    panel.appendChild(inner);
     panel.style.minWidth = "140px";
   }
 

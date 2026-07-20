@@ -1,6 +1,10 @@
 import type { Editor } from "@tiptap/core";
 import type { EditorCommand, ImageOptions, FileInsertOptions, MediaOptions } from "../types";
 import { commandRegistry } from "./registry";
+import type { MusicOptions } from "../core/music";
+import type { ChartOptions } from "../core/chart";
+import { captureScreenshot } from "../core/screenshot";
+import { imageSrcToBlob, downloadBlob, urlToDataUrl } from "../core/image-tools";
 
 const safe =
   (fn: (editor: Editor) => boolean) =>
@@ -397,6 +401,46 @@ export const commandDefinitions: EditorCommand[] = [
     const el = e.view.dom as HTMLElement;
     if (color) el.style.backgroundColor = color;
     else el.style.removeProperty("background-color");
+  }),
+
+  // —— v2.6.0 低优先级功能：音乐 / 图表 / 模板 / 截图 / 涂鸦 / 图片保存 / 远程图片 ——
+  cmd("music", () => false, () => true, (e, p) => {
+    const { src, name, artist } = (p ?? {}) as MusicOptions & { src: string };
+    if (!src) return;
+    e.chain().focus().insertMusic({ src, name, artist }).run();
+  }),
+  cmd("chart", () => false, () => true, (e, p) => {
+    const opts = (p ?? {}) as ChartOptions;
+    if (!opts.values) return;
+    e.chain().focus().insertChart(opts).run();
+  }),
+  cmd("insertTemplate", () => false, () => true, (e, p) => {
+    const html = String(p ?? "");
+    if (!html) return;
+    e.chain().focus().insertContent(html).run();
+  }),
+  cmd("screenshot", () => false, () => typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia, async (e) => {
+    const dataUrl = await captureScreenshot();
+    if (dataUrl) e.chain().focus().setImage({ src: dataUrl }).run();
+  }),
+  cmd("graffiti", () => false, () => true, (e, p) => {
+    const src = String(p ?? "");
+    if (!src) return;
+    e.chain().focus().setImage({ src }).run();
+  }),
+  cmd("saveImage", () => false, (e) => e.isActive("image"), async (e) => {
+    const attrs = e.getAttributes("image") as { src?: string };
+    const src = attrs.src;
+    if (!src) return;
+    const blob = await imageSrcToBlob(src);
+    if (blob) downloadBlob(blob, src.split("/").pop() || "image.png");
+  }),
+  cmd("remoteImage", () => false, () => true, async (e, p) => {
+    const src = String(p ?? "");
+    if (!src) return;
+    const dataUrl = await urlToDataUrl(src);
+    if (dataUrl) e.chain().focus().setImage({ src: dataUrl }).run();
+    else e.chain().focus().setImage({ src }).run();
   }),
 ];
 

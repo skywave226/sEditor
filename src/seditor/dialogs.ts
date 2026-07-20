@@ -130,6 +130,10 @@ export class DialogManager {
     else if (name === "findReplace") shell = this.buildFindReplaceDialog();
     else if (name === "iframe") shell = this.buildIframeDialog();
     else if (name === "anchor") shell = this.buildAnchorDialog();
+    else if (name === "music") shell = this.buildMusicDialog();
+    else if (name === "chart") shell = this.buildChartDialog();
+    else if (name === "graffiti") shell = this.buildGraffitiDialog();
+    else if (name === "remoteImage") shell = this.buildRemoteImageDialog();
     if (!shell) {
       // 未知对话框名：重置 store 以免状态卡死
       this.store.closeDialog();
@@ -940,6 +944,261 @@ export class DialogManager {
     body.appendChild(buildField("锚点 ID", idInput));
     const nameInput = buildInput({ value: name, placeholder: "（可选）显示名称", onInput: (v) => { name = v; } });
     body.appendChild(buildField("名称", nameInput));
+
+    return shell;
+  }
+
+  private buildMusicDialog(): HTMLElement {
+    let src = "";
+    let name = "";
+    let artist = "";
+    let tab: "url" | "upload" = "url";
+    let uploading = false;
+
+    const { shell, body } = buildDialogShell({
+      title: "插入音乐",
+      width: 460,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const url = src.trim();
+        if (!url) return;
+        commandRegistry.run(this.editor, "music", {
+          src: url,
+          name: name.trim(),
+          artist: artist.trim(),
+        });
+        this.close();
+      },
+      confirmDisabled: !src.trim(),
+    });
+
+    const renderBody = () => {
+      body.innerHTML = "";
+      if (this.config?.fileUpload) {
+        const tabBar = h("div", { className: "mb-3 flex border-b border-se-border text-[13px]" });
+        (["url", "upload"] as const).forEach((t) => {
+          const tb = h("button", {
+            type: "button",
+            className: cn(
+              "px-3 py-1.5",
+              tab === t ? "border-b-2 border-se-primary text-se-primary-text" : "text-se-sub",
+            ),
+          });
+          tb.textContent = t === "url" ? "网络音频" : "本地上传";
+          tb.addEventListener("click", () => { tab = t; renderBody(); });
+          tabBar.appendChild(tb);
+        });
+        body.appendChild(tabBar);
+      }
+
+      if (tab === "upload") {
+        const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
+        fileInput.accept = "audio/*";
+        const statusEl = h("div", { className: "mt-1 text-[12px]" });
+        fileInput.addEventListener("change", async () => {
+          const files = Array.from(fileInput.files ?? []);
+          if (files.length === 0) return;
+          if (!this.config?.fileUpload) return;
+          uploading = true;
+          statusEl.textContent = "上传中…";
+          statusEl.className = "mt-1 text-[12px] text-se-primary";
+          try {
+            const url = await this.config.fileUpload(files[0]);
+            src = url;
+            tab = "url";
+            uploading = false;
+            renderBody();
+          } catch (err) {
+            console.error("[sEditor] 音乐上传失败:", err);
+            const msg = err instanceof Error ? err.message : "未知错误";
+            statusEl.textContent = `上传失败：${msg}`;
+            statusEl.className = "mt-1 text-[12px] text-red-500";
+            uploading = false;
+          }
+        });
+        body.appendChild(buildField("选择音乐文件", fileInput));
+        if (uploading) body.appendChild(statusEl);
+      } else {
+        const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
+        body.appendChild(buildField("音频地址", urlInput));
+        const nameInput = buildInput({ value: name, placeholder: "（可选）歌曲名称", onInput: (v) => { name = v; } });
+        body.appendChild(buildField("名称", nameInput));
+        const artistInput = buildInput({ value: artist, placeholder: "（可选）艺术家", onInput: (v) => { artist = v; } });
+        body.appendChild(buildField("艺术家", artistInput));
+      }
+    };
+    renderBody();
+    return shell;
+  }
+
+  private buildChartDialog(): HTMLElement {
+    let type: "bar" | "line" | "pie" = "bar";
+    let title = "";
+    let labels = "";
+    let values = "";
+    let colors = "";
+
+    const { shell, body } = buildDialogShell({
+      title: "插入图表",
+      width: 460,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        if (!values.trim()) return;
+        commandRegistry.run(this.editor, "chart", { type, title: title.trim(), labels, values, colors });
+        this.close();
+      },
+      confirmDisabled: !values.trim(),
+    });
+
+    const typeSelect = h("select", { className: inputClass }) as HTMLSelectElement;
+    (["bar", "line", "pie"] as const).forEach((t) => {
+      const opt = h("option") as HTMLOptionElement;
+      opt.value = t;
+      opt.textContent = t === "bar" ? "柱状图" : t === "line" ? "折线图" : "饼图";
+      typeSelect.appendChild(opt);
+    });
+    typeSelect.addEventListener("change", () => { type = typeSelect.value as "bar" | "line" | "pie"; });
+    body.appendChild(buildField("图表类型", typeSelect));
+
+    body.appendChild(buildField("标题", buildInput({ value: title, placeholder: "（可选）", onInput: (v) => { title = v; } })));
+    body.appendChild(buildField("标签（逗号分隔）", buildInput({ value: labels, placeholder: "如 一月,二月,三月", onInput: (v) => { labels = v; } })));
+    body.appendChild(buildField("数值（逗号分隔）", buildInput({ value: values, placeholder: "如 10,20,30", autoFocus: true, onInput: (v) => { values = v; } })));
+    body.appendChild(buildField("颜色（逗号分隔，可选）", buildInput({ value: colors, placeholder: "如 #3b82f6,#ef4444", onInput: (v) => { colors = v; } })));
+
+    return shell;
+  }
+
+  private buildGraffitiDialog(): HTMLElement {
+    let color = "#000000";
+    let lineWidth = 4;
+    let dataUrl = "";
+    const width = 600;
+    const height = 300;
+
+    const { shell, body } = buildDialogShell({
+      title: "涂鸦",
+      width: 660,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        if (dataUrl) commandRegistry.run(this.editor, "graffiti", dataUrl);
+        this.close();
+      },
+      confirmDisabled: !dataUrl,
+    });
+
+    const canvas = h("canvas", { className: "border border-se-border bg-white cursor-crosshair" }) as HTMLCanvasElement;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    }
+
+    let drawing = false;
+    const getPos = (e: { clientX: number; clientY: number }) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+    const startDraw = (e: MouseEvent) => {
+      drawing = true;
+      if (!ctx) return;
+      const p = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    };
+    const moveDraw = (e: MouseEvent) => {
+      if (!drawing || !ctx) return;
+      const p = getPos(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    };
+    const endDraw = () => {
+      if (!drawing) return;
+      drawing = false;
+      dataUrl = canvas.toDataURL("image/png");
+    };
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mousemove", moveDraw);
+    canvas.addEventListener("mouseup", endDraw);
+    canvas.addEventListener("mouseleave", endDraw);
+
+    const touchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      drawing = true;
+      if (!ctx) return;
+      const p = getPos(e.touches[0]);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    };
+    const touchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!drawing || !ctx) return;
+      const p = getPos(e.touches[0]);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    };
+    const touchEnd = () => {
+      drawing = false;
+      dataUrl = canvas.toDataURL("image/png");
+    };
+    canvas.addEventListener("touchstart", touchStart);
+    canvas.addEventListener("touchmove", touchMove);
+    canvas.addEventListener("touchend", touchEnd);
+
+    const tools = h("div", { className: "mb-3 flex items-center gap-3" });
+    const colorInput = h("input", { type: "color", className: "h-8 w-8 rounded border border-se-border" }) as HTMLInputElement;
+    colorInput.value = color;
+    colorInput.addEventListener("input", () => {
+      color = colorInput.value;
+      if (ctx) ctx.strokeStyle = color;
+    });
+    const sizeInput = h("input", { type: "range", min: "1", max: "20", value: String(lineWidth) }) as HTMLInputElement;
+    sizeInput.addEventListener("input", () => {
+      lineWidth = Number(sizeInput.value);
+      if (ctx) ctx.lineWidth = lineWidth;
+    });
+    const clearBtn = h("button", {
+      type: "button",
+      className: "rounded border border-se-border bg-white px-3 py-1 text-[13px] text-se-sub hover:bg-se-hover",
+    });
+    clearBtn.textContent = "清空";
+    clearBtn.addEventListener("click", () => {
+      if (ctx) ctx.clearRect(0, 0, width, height);
+      dataUrl = "";
+    });
+    tools.appendChild(colorInput);
+    tools.appendChild(sizeInput);
+    tools.appendChild(clearBtn);
+
+    body.appendChild(tools);
+    body.appendChild(canvas);
+    return shell;
+  }
+
+  private buildRemoteImageDialog(): HTMLElement {
+    let src = "";
+
+    const { shell, body } = buildDialogShell({
+      title: "远程图片",
+      width: 440,
+      onClose: () => this.close(),
+      onConfirm: () => {
+        const url = src.trim();
+        if (!url) return;
+        commandRegistry.run(this.editor, "remoteImage", url);
+        this.close();
+      },
+      confirmDisabled: !src.trim(),
+    });
+
+    const urlInput = buildInput({ value: src, placeholder: "https://", autoFocus: true, onInput: (v) => { src = v; } });
+    body.appendChild(buildField("图片地址", urlInput));
+    const tip = h("div", { className: "mt-2 text-[12px] text-se-faint" });
+    tip.textContent = "会尝试下载图片并转为本地 dataURL，受目标站 CORS 策略限制。";
+    body.appendChild(tip);
 
     return shell;
   }

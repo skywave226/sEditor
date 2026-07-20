@@ -88,4 +88,8 @@ export type DialogType =
   | "audio"
   | "emoji"
   | "findReplace"
+  | "music"
+  | "chart"
+  | "graffiti"
+  | "remoteImage"
   | null;

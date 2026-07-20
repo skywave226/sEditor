@@ -80,6 +80,13 @@ export const icons: Record<string, string> = {
   autoFormat: wrap('<path d="M4 7V4h3"/><path d="M4 17v3h3"/><path d="M20 7V4h-3"/><path d="M20 17v3h-3"/><path d="M9 9h6v6H9z"/>'),
   textCase: wrap('<path d="M4 7V5h6"/><path d="M4 11h6"/><path d="M14 11h6"/><path d="M17 7V5h-3"/><path d="M17 15v5"/><path d="M14 17h6"/>'),
   background: wrap('<rect width="18" height="18" x="3" y="3" rx="2" fill="currentColor" fill-opacity="0.2"/><path d="M3 15h18"/>'),
+  music: wrap('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M9 5v7l8-1.5"/>'),
+  chart: wrap('<path d="M3 3v18h18"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-6"/>'),
+  screenshot: wrap('<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
+  graffiti: wrap('<path d="m18 5-8 8-1-1"/><path d="m12 15 3-3"/><path d="M3 21h18"/>'),
+  remoteImage: wrap('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  saveImage: wrap('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><circle cx="12" cy="11" r="3"/><path d="M7 21v-8h10v8"/>'),
+  template: wrap('<rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/>'),
 };
 
 /** 获取图标 SVG 字符串 */

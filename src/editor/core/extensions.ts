@@ -26,6 +26,8 @@ import { CharacterBorder } from "./character-border";
 import { PageBreak } from "./page-break";
 import { Iframe } from "./iframe";
 import { Anchor } from "./anchor";
+import { Music } from "./music";
+import { Chart } from "./chart";
 
 /**
  * 扩展 Link：增加 download 属性，用于文件下载链接。
@@ -75,6 +77,8 @@ export function buildExtensions(placeholder?: string): Extensions {
       validate: (url) => /^(https?:|mailto:|tel:|\/|#)/i.test(url),
       HTMLAttributes: { rel: "noopener noreferrer nofollow" },
     }),
+    // 图表节点需在默认 Image 之前注册，确保 img[data-chart] 优先命中 Chart
+    Chart,
     // inline: true 使图片作为内联节点存在于段落中，
     // 这样 setTextAlign(left/center/right) 才能通过段落对齐作用于图片。
     // ResizableImage 自定义 NodeView 在图片右下角加拖拽手柄，可调整宽度。
@@ -103,7 +107,8 @@ export function buildExtensions(placeholder?: string): Extensions {
     PageBreak,
     Iframe,
     Anchor,
-    // 视频 / 音频节点（<video controls> / <audio controls>），atom 不可编辑
+    // 视频 / 音频 / 音乐节点（<video controls> / <audio controls>），atom 不可编辑
+    Music,
     Video,
     Audio,
   ];
