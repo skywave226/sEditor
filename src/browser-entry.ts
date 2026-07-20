@@ -18,6 +18,7 @@ export interface SEditorInstance {
   exportMarkdown(filename?: string): void;
   exportWord(filename?: string): void;
   exportPDF(filename?: string): void;
+  importMarkdown(md: string): void;
   clearDraft(): void;
   hasRestoredDraft(): boolean;
   exec(command: string, payload?: unknown): void;
@@ -47,6 +48,7 @@ export function create(options: SEditorOptions): SEditorInstance {
     exportMarkdown: (filename) => editor.exportMarkdown(filename),
     exportWord: (filename) => editor.exportWord(filename),
     exportPDF: (filename) => editor.exportPDF(filename),
+    importMarkdown: (md) => editor.importMarkdown(md),
     clearDraft: () => editor.clearDraft(),
     hasRestoredDraft: () => editor.hasRestoredDraft(),
     exec: (command, payload) => editor.exec(command, payload),

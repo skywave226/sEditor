@@ -14,7 +14,7 @@ import { SourceView } from "./source-view";
 import { TableBubble } from "./table-bubble";
 import { LinkBubble } from "./link-bubble";
 import { SlashMenu } from "./slash-menu";
-import { exportMarkdown, exportWord, exportPDF } from "./exporter";
+import { exportMarkdown, exportWord, exportPDF, markdownToHtml } from "./exporter";
 import { reportError } from "../editor/core/logger";
 import { createI18n, type I18n } from "../editor/core/i18n";
 import { DEFAULT_IMAGE_MAX_SIZE, DEFAULT_DRAFT_INTERVAL } from "../editor/constants";
@@ -426,6 +426,11 @@ export class SEditor {
   /** 导出为 PDF（通过浏览器打印对话框） */
   exportPDF(filename?: string): void {
     exportPDF(this.getHTML(), filename);
+  }
+
+  /** 导入 Markdown 并替换当前内容 */
+  importMarkdown(md: string): void {
+    this.setHTML(markdownToHtml(md));
   }
 
   exec(command: string, payload?: unknown): void {

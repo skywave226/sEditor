@@ -95,6 +95,14 @@ describe("sEditor smoke", () => {
     editor.exec("specialChar", "🚀");
     expect(editor.getText()).toContain("🚀");
   });
+
+  it("importMarkdown 应解析标题/列表/链接并写入编辑器", () => {
+    editor.importMarkdown(`# 标题\n\n- 项目 A\n- 项目 B\n\n[链接](https://example.com)`);
+    const html = editor.getHTML();
+    expect(html).toContain("<h1>");
+    expect(html).toContain("项目 A");
+    expect(html).toContain('href="https://example.com"');
+  });
 });
 
 /**

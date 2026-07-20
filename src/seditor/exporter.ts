@@ -129,6 +129,151 @@ export function exportMarkdown(html: string, filename = "seditor-export.md"): vo
 }
 
 /**
+ * 极简 Markdown → HTML 转换器（与 htmlToMarkdown 对应）
+ * 覆盖：h1-h6 / p / strong / em / del / code / pre / ul / ol / li /
+ *       blockquote / hr / a / img / table
+ * 不追求 100% 还原，目标是用纯文本规则覆盖 90% 常见正文场景。
+ */
+export function markdownToHtml(md: string): string {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let i = 0;
+
+  const parseInline = (text: string): string => {
+    // 图片 ![alt](src)
+    let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+    // 链接 [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    // 行内代码 `code`
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    // 粗体 **text** / __text__
+    html = html.replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, "<strong>$1$2</strong>");
+    // 斜体 *text* / _text_
+    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)|(?<!_)_([^_]+)_(?!_)/g, "<em>$1$2</em>");
+    // 删除线 ~~text~~
+    html = html.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+    return html;
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 空行
+    if (trimmed === "") {
+      i++;
+      continue;
+    }
+
+    // 代码块
+    if (trimmed.startsWith("```")) {
+      const lang = trimmed.slice(3).trim();
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      const code = escapeHtml(codeLines.join("\n"));
+      out.push(`<pre><code${lang ? ` class="language-${lang}"` : ""}>${code}</code></pre>`);
+      continue;
+    }
+
+    // 标题
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      out.push(`<h${level}>${parseInline(escapeHtml(headingMatch[2]))}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    // 水平线
+    if (/^(---|___|\*\*\*)$/.test(trimmed)) {
+      out.push("<hr>");
+      i++;
+      continue;
+    }
+
+    // 引用
+    if (trimmed.startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith(">")) {
+        quoteLines.push(lines[i].trim().slice(1).trimStart());
+        i++;
+      }
+      const inner = parseBlock(quoteLines.join("\n"));
+      out.push(`<blockquote>${inner}</blockquote>`);
+      continue;
+    }
+
+    // 无序列表
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
+        const content = lines[i].trim().replace(/^[-*+]\s+/, "");
+        items.push(`<li>${parseInline(escapeHtml(content))}</li>`);
+        i++;
+      }
+      out.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    // 有序列表
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        const content = lines[i].trim().replace(/^\d+\.\s+/, "");
+        items.push(`<li>${parseInline(escapeHtml(content))}</li>`);
+        i++;
+      }
+      out.push(`<ol>${items.join("")}</ol>`);
+      continue;
+    }
+
+    // 表格
+    if (trimmed.includes("|") && i + 1 < lines.length && /^\|?[\s\-:|]+\|?$/.test(lines[i + 1].trim())) {
+      const headerLine = trimmed;
+      i += 2; // 跳过表头分隔行
+      const headerCells = headerLine.split("|").map((s) => s.trim()).filter((s) => s !== "");
+      const bodyRows: string[][] = [];
+      while (i < lines.length && lines[i].trim().includes("|")) {
+        bodyRows.push(lines[i].split("|").map((s) => s.trim()).filter((s) => s !== ""));
+        i++;
+      }
+      const ths = headerCells.map((c) => `<th>${parseInline(escapeHtml(c))}</th>`).join("");
+      const tds = bodyRows.map((row) => `<tr>${row.map((c) => `<td>${parseInline(escapeHtml(c))}</td>`).join("")}</tr>`).join("");
+      out.push(`<table><thead><tr>${ths}</tr></thead><tbody>${tds}</tbody></table>`);
+      continue;
+    }
+
+    // 段落
+    const paraLines: string[] = [];
+    while (i < lines.length && lines[i].trim() !== "") {
+      paraLines.push(lines[i].trim());
+      i++;
+    }
+    out.push(`<p>${parseInline(escapeHtml(paraLines.join(" ")))}</p>`);
+  }
+
+  return out.join("");
+}
+
+function parseBlock(md: string): string {
+  return markdownToHtml(md);
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * 导出为 Word（.doc）文件
  * Word 可打开带 Microsoft Office 命名空间的 HTML，存为 .doc 即可。
  */
