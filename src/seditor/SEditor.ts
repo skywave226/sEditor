@@ -17,7 +17,8 @@ import { SlashMenu } from "./slash-menu";
 import { exportMarkdown, exportWord, exportPDF, markdownToHtml } from "./exporter";
 import { reportError } from "../editor/core/logger";
 import { createI18n, type I18n } from "../editor/core/i18n";
-import { DEFAULT_IMAGE_MAX_SIZE, DEFAULT_DRAFT_INTERVAL } from "../editor/constants";
+import { DEFAULT_IMAGE_MAX_SIZE, DEFAULT_DRAFT_INTERVAL, DEFAULT_IMAGE_COMPRESS } from "../editor/constants";
+import { compressImage, type CompressOptions } from "../editor/core/image-utils";
 
 export interface SEditorOptions extends EditorConfig {
   target: HTMLElement | string;
@@ -49,6 +50,7 @@ export class SEditor {
   private imageUploadFn?: (file: File) => Promise<string>;
   private fileUploadFn?: (file: File) => Promise<string>;
   private imageMaxSizeBytes: number;
+  private imageCompressOptions?: CompressOptions;
   private config: EditorConfig;
   private i18n: I18n;
 
@@ -69,6 +71,7 @@ export class SEditor {
     this.imageUploadFn = options.imageUpload;
     this.fileUploadFn = options.fileUpload;
     this.imageMaxSizeBytes = options.imageMaxSize ?? DEFAULT_IMAGE_MAX_SIZE;
+    this.imageCompressOptions = options.imageCompress === true ? DEFAULT_IMAGE_COMPRESS : options.imageCompress || undefined;
 
     ensureCommandsRegistered();
 
@@ -256,7 +259,10 @@ export class SEditor {
           continue;
         }
         try {
-          const url = await this.imageUploadFn!(file);
+          const uploadFile = this.imageCompressOptions
+            ? await compressImage(file, this.imageCompressOptions)
+            : file;
+          const url = await this.imageUploadFn!(uploadFile);
           if (url) {
             this.editor?.chain().focus().setImage({ src: url }).run();
           }
@@ -279,7 +285,10 @@ export class SEditor {
         if (file.type.startsWith("image/") && this.imageUploadFn) {
           if (file.size > this.imageMaxSizeBytes) continue;
           try {
-            const url = await this.imageUploadFn(file);
+            const uploadFile = this.imageCompressOptions
+              ? await compressImage(file, this.imageCompressOptions)
+              : file;
+            const url = await this.imageUploadFn(uploadFile);
             if (url) this.editor?.chain().focus().setImage({ src: url }).run();
           } catch (err) {
             reportError(this.config, "drop-image-upload", err);

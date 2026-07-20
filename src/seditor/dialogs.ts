@@ -6,7 +6,8 @@ import type { UIStore } from "./store";
 import type { EditorConfig } from "../editor/types";
 import { reportError } from "../editor/core/logger";
 import type { I18n, I18nMessagesKey } from "../editor/core/i18n";
-import { DIALOG_WIDTH, DEFAULT_IMAGE_MAX_SIZE, DEFAULT_FILE_MAX_SIZE } from "../editor/constants";
+import { DIALOG_WIDTH, DEFAULT_IMAGE_MAX_SIZE, DEFAULT_FILE_MAX_SIZE, DEFAULT_IMAGE_COMPRESS } from "../editor/constants";
+import { compressImage, type CompressOptions } from "../editor/core/image-utils";
 
 const inputClass =
   "w-full rounded border border-se-border px-2.5 py-1.5 text-[13px] text-se-ink outline-none focus:border-se-primary";
@@ -172,6 +173,12 @@ export class DialogManager {
     }
   }
 
+  private imageCompressOptions(): CompressOptions | undefined {
+    const cfg = this.config?.imageCompress;
+    if (!cfg) return undefined;
+    return cfg === true ? DEFAULT_IMAGE_COMPRESS : cfg;
+  }
+
   private buildLinkDialog(): HTMLElement {
     let href = "";
     let text = "";
@@ -331,11 +338,13 @@ export class DialogManager {
           // 单图：保持原有行为（切回 URL Tab 让用户继续设置 alt/width/align）
           // 多图：逐张上传后批量插入，关闭对话框
           const isMulti = validFiles.length > 1;
+          const compressOpts = this.imageCompressOptions();
           try {
             const uploadFn = this.config.imageUpload;
             if (!uploadFn) throw new Error(this.i18n.t("dialog.image.noUploadAbility"));
             if (!isMulti) {
-              const url = await uploadFn(validFiles[0]);
+              const uploadFile = compressOpts ? await compressImage(validFiles[0], compressOpts) : validFiles[0];
+              const url = await uploadFn(uploadFile);
               if (!url || typeof url !== "string") {
                 throw new Error(this.i18n.t("dialog.image.invalidReturn"));
               }
@@ -347,7 +356,8 @@ export class DialogManager {
               const urls: string[] = [];
               for (let i = 0; i < validFiles.length; i++) {
                 statusEl.textContent = this.i18n.t("dialog.image.uploading", { current: i + 1, total: validFiles.length });
-                const url = await uploadFn(validFiles[i]);
+                const uploadFile = compressOpts ? await compressImage(validFiles[i], compressOpts) : validFiles[i];
+                const url = await uploadFn(uploadFile);
                 if (!url || typeof url !== "string") {
                   throw new Error(this.i18n.t("dialog.image.invalidReturnIndex", { index: i + 1 }));
                 }

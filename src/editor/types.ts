@@ -16,6 +16,8 @@ export interface EditorConfig {
   imageMaxSize?: number;
   /** 是否允许多图上传（一次选择多个文件），默认 true */
   imageMultiUpload?: boolean;
+  /** 上传前是否压缩图片；true 时使用默认参数，也可传入自定义参数 */
+  imageCompress?: boolean | { maxWidth?: number; maxHeight?: number; quality?: number; type?: "image/jpeg" | "image/webp" };
   /** 自定义文件上传函数，返回文件 URL（用于插入文件下载链接） */
   fileUpload?: (file: File) => Promise<string>;
   /** 单个文件最大字节数，默认 20MB */

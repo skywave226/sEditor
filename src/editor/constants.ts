@@ -5,6 +5,14 @@
 /** 默认单张图片最大字节数：5MB */
 export const DEFAULT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
 
+/** 默认图片压缩：最大宽度 1920，质量 0.85 */
+export const DEFAULT_IMAGE_COMPRESS = {
+  maxWidth: 1920,
+  maxHeight: 1920,
+  quality: 0.85,
+  type: "image/jpeg" as const,
+};
+
 /** 默认单个文件最大字节数：20MB */
 export const DEFAULT_FILE_MAX_SIZE = 20 * 1024 * 1024;
 
