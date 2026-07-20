@@ -109,15 +109,17 @@ export class Toolbar {
   private cleanups: (() => void)[] = [];
   private hidden: boolean;
   private whitelist: Set<string> | null;
+  private responsive: boolean;
 
-  constructor(editor: Editor, store: UIStore, items?: string[] | false) {
+  constructor(editor: Editor, store: UIStore, items?: string[] | false, responsive = false) {
     this.editor = editor;
     this.store = store;
     this.hidden = items === false;
     // null 表示不限制（显示全部）；空数组也视为不限制以避免误清空
     this.whitelist = Array.isArray(items) && items.length > 0 ? new Set(items) : null;
+    this.responsive = responsive;
     this.el = this.build();
-    this.setupResponsive();
+    if (this.responsive) this.setupResponsive();
     this.syncState();
     this.bindEditorEvents();
   }
@@ -169,57 +171,59 @@ export class Toolbar {
       this.groupConfigs.push(visibleItems);
     });
 
-    // 「更多 ⋯」按钮：响应式折叠时显示溢出项
-    const moreWrap = h("div", { className: "relative hidden se-toolbar-more" });
-    const moreBtn = h("button", {
-      type: "button",
-      title: "更多",
-      className: "flex h-8 items-center gap-1 rounded px-2 text-[13px] text-se-ink hover:bg-se-hover",
-    });
-    moreBtn.innerHTML = "更多 " + getIcon("chevronDown");
-    let morePanel: HTMLElement | null = null;
-    let morePanelCleanup: (() => void)[] = [];
-    const closeMore = (): void => {
-      if (morePanel) {
-        morePanel.remove();
-        morePanel = null;
-      }
-      morePanelCleanup.forEach((fn) => fn());
-      morePanelCleanup = [];
-    };
-    moreBtn.addEventListener("click", () => {
-      if (morePanel) {
-        closeMore();
-        return;
-      }
-      morePanel = h("div", {
-        className: "absolute right-0 top-9 z-50 rounded-md border border-se-border bg-se-canvas shadow-dropdown",
+    // 「更多 ⋯」按钮：仅在启用响应式折叠时渲染
+    if (this.responsive) {
+      const moreWrap = h("div", { className: "relative hidden se-toolbar-more" });
+      const moreBtn = h("button", {
+        type: "button",
+        title: "更多",
+        className: "flex h-8 items-center gap-1 rounded px-2 text-[13px] text-se-ink hover:bg-se-hover",
       });
-      morePanel.style.minWidth = "200px";
-      const inner = h("div", { className: "py-1" });
-      // 把所有当前被响应式隐藏的 group 的按钮渲染进来
-      // 注意：dropdown 类型（heading/fontFamily/color 等）的 command 为 undefined，
-      // 且其交互依赖浮层定位，无法在「更多」面板中直接展开，故跳过避免崩溃。
-      this.groupEls.forEach((gEl, idx) => {
-        if (!gEl.classList.contains("se-toolbar-overflow-hidden")) return;
-        const cfgs = this.groupConfigs[idx];
-        cfgs.forEach((cfg) => {
-          if (cfg.type === "divider" || cfg.type === "dropdown" || !cfg.id || !cfg.command) return;
-          const item = this.buildMenuItem(cfg.label ?? cfg.id, false, () => {
-            this.handleCommand(cfg.command!);
-            closeMore();
-          });
-          inner.appendChild(item);
+      moreBtn.innerHTML = "更多 " + getIcon("chevronDown");
+      let morePanel: HTMLElement | null = null;
+      let morePanelCleanup: (() => void)[] = [];
+      const closeMore = (): void => {
+        if (morePanel) {
+          morePanel.remove();
+          morePanel = null;
+        }
+        morePanelCleanup.forEach((fn) => fn());
+        morePanelCleanup = [];
+      };
+      moreBtn.addEventListener("click", () => {
+        if (morePanel) {
+          closeMore();
+          return;
+        }
+        morePanel = h("div", {
+          className: "absolute right-0 top-9 z-50 rounded-md border border-se-border bg-se-canvas shadow-dropdown",
         });
+        morePanel.style.minWidth = "200px";
+        const inner = h("div", { className: "py-1" });
+        // 把所有当前被响应式隐藏的 group 的按钮渲染进来
+        // 注意：dropdown 类型（heading/fontFamily/color 等）的 command 为 undefined，
+        // 且其交互依赖浮层定位，无法在「更多」面板中直接展开，故跳过避免崩溃。
+        this.groupEls.forEach((gEl, idx) => {
+          if (!gEl.classList.contains("se-toolbar-overflow-hidden")) return;
+          const cfgs = this.groupConfigs[idx];
+          cfgs.forEach((cfg) => {
+            if (cfg.type === "divider" || cfg.type === "dropdown" || !cfg.id || !cfg.command) return;
+            const item = this.buildMenuItem(cfg.label ?? cfg.id, false, () => {
+              this.handleCommand(cfg.command!);
+              closeMore();
+            });
+            inner.appendChild(item);
+          });
+        });
+        morePanel.appendChild(inner);
+        moreWrap.appendChild(morePanel);
+        morePanelCleanup.push(onClickOutside(morePanel, closeMore));
+        morePanelCleanup.push(onEscape(closeMore));
       });
-      morePanel.appendChild(inner);
-      moreWrap.appendChild(morePanel);
-      morePanelCleanup.push(onClickOutside(morePanel, closeMore));
-      morePanelCleanup.push(onEscape(closeMore));
-    });
-    moreWrap.appendChild(moreBtn);
-    root.appendChild(moreWrap);
-    this.moreWrap = moreWrap;
+      moreWrap.appendChild(moreBtn);
+      root.appendChild(moreWrap);
+      this.moreWrap = moreWrap;
+    }
 
     return root;
   }

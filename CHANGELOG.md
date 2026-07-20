@@ -1,5 +1,18 @@
 # 更新说明
 
+## [2.3.3] - 2026-07-19
+
+### 变更
+- **工具栏默认展示全部按钮**：新增配置项 `toolbarResponsive?: boolean`，默认 `false`。默认行为改为全部按钮直接展示（使用 `flex-wrap` 自动换行），不再折叠到「更多 ⋯」下拉菜单。
+  - `Toolbar` 构造函数新增第 4 个参数 `responsive = false`；仅在 `responsive === true` 时才渲染「更多」按钮并启用 `ResizeObserver` 折叠逻辑。
+  - `EditorConfig` / `index.d.ts` 同步新增 `toolbarResponsive?: boolean` 类型声明。
+  - 若需要恢复之前的响应式折叠行为，创建编辑器时传入 `toolbarResponsive: true` 即可。
+
+### 测试
+- `pnpm check` 0 错误；`pnpm test` 21/21 通过；`pnpm lint` 0 错误；`pnpm build:lib` 成功（sEditor.js 457.13 kB / sEditor.esm.js 677.92 kB）；`pnpm dev` 预览确认工具栏全部按钮直接可见，无「更多」下拉。
+
+---
+
 ## [2.3.2] - 2026-07-19
 
 ### 修复

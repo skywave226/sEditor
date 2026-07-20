@@ -16,6 +16,8 @@ export interface EditorConfig {
   placeholder?: string;
   height?: number | string;
   toolbar?: string[] | false;
+  /** 启用工具栏响应式折叠：默认 false（全部按钮直接展示，允许换行） */
+  toolbarResponsive?: boolean;
   /** 自定义图片上传函数，返回图片 URL（单张） */
   imageUpload?: (file: File) => Promise<string>;
   /** 单张图片最大字节数，默认 5MB */

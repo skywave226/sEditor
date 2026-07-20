@@ -123,7 +123,7 @@ export class SEditor {
     this.root.appendChild(this.frame);
 
     // 工具栏（toolbar: false 时不挂载）
-    this.toolbar = new Toolbar(editor, this.store, options.toolbar);
+    this.toolbar = new Toolbar(editor, this.store, options.toolbar, options.toolbarResponsive);
     if (!this.toolbar.isHidden()) {
       this.root.insertBefore(this.toolbar.getElement(), this.root.firstChild);
     }
