@@ -13,7 +13,7 @@ export interface SEditorInstance {
   setText(text: string): void;
   focus(): void;
   blur(): void;
-  insertImage(src: string, opts?: { alt?: string; width?: number | string }): void;
+  insertImage(src: string, opts?: { alt?: string; width?: number | string; height?: number | string }): void;
   insertFile(src: string, opts?: { name?: string; download?: boolean }): void;
   exportMarkdown(filename?: string): void;
   exportWord(filename?: string): void;

@@ -404,11 +404,12 @@ export class SEditor {
     this.editor?.commands.blur();
   }
 
-  insertImage(src: string, opts?: { alt?: string; width?: number | string }): void {
+  insertImage(src: string, opts?: { alt?: string; width?: number | string; height?: number | string }): void {
     if (!this.editor) return;
     const attrs: Record<string, unknown> = { src };
     if (opts?.alt) attrs.alt = opts.alt;
     if (opts?.width != null) attrs.width = opts.width;
+    if (opts?.height != null) attrs.height = opts.height;
     this.editor.chain().focus().setImage(attrs as { src: string; alt?: string }).run();
   }
 

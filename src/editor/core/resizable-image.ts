@@ -62,6 +62,21 @@ export const ResizableImage = Image.extend({
           return { width: attrs.width };
         },
       },
+      height: {
+        default: null,
+        parseHTML: (el) => {
+          const img = el as HTMLImageElement;
+          const h = img.getAttribute("height");
+          if (h) return h;
+          const styleH = img.style.height;
+          if (styleH) return styleH;
+          return null;
+        },
+        renderHTML: (attrs) => {
+          if (!attrs.height) return {};
+          return { height: attrs.height };
+        },
+      },
       align: {
         default: "none",
         parseHTML: (el) => {
@@ -174,12 +189,14 @@ export const ResizableImage = Image.extend({
 
       // 渲染节点 attrs
       const renderAttrs = (n: Node) => {
-        const attrs = n.attrs as { src: string; alt?: string; title?: string; width?: string | number | null; align?: ImageAlign };
+        const attrs = n.attrs as { src: string; alt?: string; title?: string; width?: string | number | null; height?: string | number | null; align?: ImageAlign };
         img.src = attrs.src;
         if (attrs.alt) img.alt = attrs.alt; else img.removeAttribute("alt");
         if (attrs.title) img.title = attrs.title; else img.removeAttribute("title");
         if (attrs.width) img.style.width = typeof attrs.width === "number" ? `${attrs.width}px` : attrs.width;
         else img.style.width = "";
+        if (attrs.height) img.style.height = typeof attrs.height === "number" ? `${attrs.height}px` : attrs.height;
+        else img.style.height = "";
         const align = attrs.align || "none";
         // 重置
         img.style.float = "";

@@ -223,8 +223,8 @@ const defaultMessages = {
 
   // 图片对话框
   "dialog.image.title": "插入图片",
-  "dialog.image.tabUrl": "网络图片",
   "dialog.image.tabUpload": "本地上传",
+  "dialog.image.tabUrl": "网络图片",
   "dialog.image.noUpload": "未配置 imageUpload 上传接口，仅支持网络图片地址。",
   "dialog.image.multiTip": "可按住 Ctrl/Shift 多选，所有图片将依次插入。",
   "dialog.image.singleTip": "每次仅可选择一张图片。",
@@ -236,6 +236,7 @@ const defaultMessages = {
   "dialog.image.uploadError": "上传失败：{{message}}",
   "dialog.image.invalidReturn": "上传返回值无效",
   "dialog.image.invalidReturnIndex": "第 {{index}} 张图片上传返回值无效",
+  "dialog.image.preview": "图片预览",
   "dialog.image.urlPlaceholder": "https://",
   "dialog.image.fileLabel": "选择文件",
   "dialog.image.urlLabel": "图片地址",
@@ -243,6 +244,9 @@ const defaultMessages = {
   "dialog.image.altPlaceholder": "（可选）",
   "dialog.image.widthLabel": "宽度（px 或 %）",
   "dialog.image.widthPlaceholder": "如 400 或 100%",
+  "dialog.image.heightLabel": "高度（px 或 %）",
+  "dialog.image.heightPlaceholder": "如 300 或 100%",
+  "dialog.image.lockRatio": "锁定宽高比",
   "dialog.image.align": "对齐方式",
   "dialog.image.alignLeft": "左对齐",
   "dialog.image.alignCenter": "居中",

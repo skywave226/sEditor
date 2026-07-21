@@ -245,9 +245,20 @@ export class DialogManager {
     let src = "";
     let alt = "";
     let width = "";
+    let height = "";
+    let lockRatio = false;
+    let naturalWidth = 0;
+    let naturalHeight = 0;
     let align: "left" | "center" | "right" = "center";
-    let tab: "url" | "upload" = "url";
+    let tab: "upload" | "url" = "upload";
     let uploading = false;
+
+    const refreshConfirmButton = () => {
+      const okBtn = shell.querySelector<HTMLButtonElement>("button[type='button'].bg-se-primary");
+      if (okBtn) {
+        okBtn.disabled = !src.trim();
+      }
+    };
 
     const { shell, body } = buildDialogShell(this.i18n, {
       title: this.i18n.t("dialog.image.title"),
@@ -259,18 +270,19 @@ export class DialogManager {
         const opts: Record<string, unknown> = { src: url };
         if (alt) opts.alt = alt;
         if (width) opts.width = width;
+        if (height) opts.height = height;
         commandRegistry.run(this.editor, "image", opts);
         this.editor.chain().focus().setTextAlign(align).run();
         this.close();
       },
-      confirmDisabled: !src.trim(),
+      confirmDisabled: false,
     });
 
     const renderBody = () => {
       body.innerHTML = "";
       if (this.config?.imageUpload) {
         const tabBar = h("div", { className: "mb-3 flex border-b border-se-border text-[13px]" });
-        (["url", "upload"] as const).forEach((t) => {
+        (["upload", "url"] as const).forEach((t) => {
           const tb = h("button", {
             type: "button",
             className: cn(
@@ -283,13 +295,37 @@ export class DialogManager {
           tabBar.appendChild(tb);
         });
         body.appendChild(tabBar);
-      } else {
-        const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+      }
+
+      const tip = h("div", { className: "mb-3 rounded bg-se-bar px-3 py-2 text-[12px] text-se-sub" });
+      if (!this.config?.imageUpload) {
         tip.textContent = this.i18n.t("dialog.image.noUpload");
         body.appendChild(tip);
       }
 
-      if (tab === "upload") {
+      if (tab === "url" || !this.config?.imageUpload) {
+        // 未配置上传时默认显示网络图片输入，可理解为唯一入口
+        if (tab === "upload") tab = "url";
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.image.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
+        body.appendChild(buildField(this.i18n.t("dialog.image.urlLabel"), urlInput));
+        if (src) {
+          const previewWrap2 = h("div", { className: "mb-3" });
+          const previewImg2 = h("img", {
+            src,
+            className: "max-h-40 rounded border border-se-border object-contain",
+          }) as HTMLImageElement;
+          previewImg2.style.display = "block";
+          previewImg2.style.maxWidth = "100%";
+          previewImg2.onload = () => {
+            naturalWidth = previewImg2.naturalWidth;
+            naturalHeight = previewImg2.naturalHeight;
+          };
+          previewWrap2.appendChild(previewImg2);
+          body.appendChild(buildField(this.i18n.t("dialog.image.preview"), previewWrap2));
+        }
+      }
+
+      if (tab === "upload" && this.config?.imageUpload) {
         const fileInput = h("input", { type: "file", className: "text-[12px] text-se-sub" }) as HTMLInputElement;
         fileInput.accept = "image/*";
         // 多图上传：默认开启，可由配置关闭
@@ -297,6 +333,17 @@ export class DialogManager {
           fileInput.multiple = true;
         }
         const statusEl = h("div", { className: "mt-1 text-[12px]" });
+        const previewWrap = h("div", { className: "mb-3 hidden" });
+        const previewImg = h("img", {
+          className: "max-h-40 rounded border border-se-border object-contain",
+        }) as HTMLImageElement;
+        previewImg.style.display = "block";
+        previewImg.style.maxWidth = "100%";
+        previewImg.onload = () => {
+          naturalWidth = previewImg.naturalWidth;
+          naturalHeight = previewImg.naturalHeight;
+        };
+        previewWrap.appendChild(previewImg);
         const multiTip = h("div", { className: "mb-2 text-[12px] text-se-faint" });
         multiTip.textContent = fileInput.multiple ? this.i18n.t("dialog.image.multiTip") : this.i18n.t("dialog.image.singleTip");
         fileInput.addEventListener("change", async () => {
@@ -330,6 +377,14 @@ export class DialogManager {
             return;
           }
 
+          // 单图上传时展示本地预览
+          if (validFiles.length === 1 && !fileInput.multiple) {
+            const url = URL.createObjectURL(validFiles[0]);
+            previewImg.src = url;
+            previewImg.onload = () => URL.revokeObjectURL(url);
+            previewWrap.classList.remove("hidden");
+          }
+
           uploading = true;
           statusEl.textContent = this.i18n.t("dialog.image.uploading", { current: 0, total: validFiles.length });
           statusEl.className = "mt-1 text-[12px] text-se-primary";
@@ -349,9 +404,11 @@ export class DialogManager {
                 throw new Error(this.i18n.t("dialog.image.invalidReturn"));
               }
               src = url;
-              tab = "url";
+              previewImg.src = url;
+              previewWrap.classList.remove("hidden");
               uploading = false;
               renderBody();
+              refreshConfirmButton();
             } else {
               const urls: string[] = [];
               for (let i = 0; i < validFiles.length; i++) {
@@ -384,16 +441,43 @@ export class DialogManager {
         });
         body.appendChild(buildField(this.i18n.t("dialog.image.fileLabel"), fileInput));
         body.appendChild(multiTip);
+        body.appendChild(previewWrap);
         if (uploading) body.appendChild(statusEl);
-      } else {
-        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.image.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
-        body.appendChild(buildField(this.i18n.t("dialog.image.urlLabel"), urlInput));
       }
 
       const altInput = buildInput({ value: alt, placeholder: this.i18n.t("dialog.image.altPlaceholder"), onInput: (v) => { alt = v; } });
       body.appendChild(buildField(this.i18n.t("dialog.image.altLabel"), altInput));
-      const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.image.widthPlaceholder"), onInput: (v) => { width = v; } });
-      body.appendChild(buildField(this.i18n.t("dialog.image.widthLabel"), wInput));
+
+      const sizeWrap = h("div", { className: "mb-3 flex gap-3" });
+      const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.image.widthPlaceholder"), onInput: (v) => {
+        width = v;
+        if (lockRatio && naturalWidth && naturalHeight) {
+          const parsed = Number.parseInt(v, 10);
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            height = String(Math.round(parsed * (naturalHeight / naturalWidth)));
+            renderBody();
+          }
+        }
+      } });
+      sizeWrap.appendChild(buildField(this.i18n.t("dialog.image.widthLabel"), wInput));
+      const hInput = buildInput({ value: height, placeholder: this.i18n.t("dialog.image.heightPlaceholder"), onInput: (v) => {
+        height = v;
+        if (lockRatio && naturalWidth && naturalHeight) {
+          const parsed = Number.parseInt(v, 10);
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            width = String(Math.round(parsed * (naturalWidth / naturalHeight)));
+            renderBody();
+          }
+        }
+      } });
+      sizeWrap.appendChild(buildField(this.i18n.t("dialog.image.heightLabel"), hInput));
+      body.appendChild(sizeWrap);
+
+      const ratioLabel = fromHTML(`<label class="mb-3 flex items-center gap-1.5 text-[13px] text-se-ink"><input type="checkbox" ${lockRatio ? "checked" : ""}>${this.i18n.t("dialog.image.lockRatio")}</label>`);
+      (ratioLabel.querySelector("input") as HTMLInputElement).addEventListener("change", (e) => {
+        lockRatio = (e.target as HTMLInputElement).checked;
+      });
+      body.appendChild(ratioLabel);
 
       const alignWrap = h("div", { className: "flex gap-4 text-[13px] text-se-ink" });
       (["left", "center", "right"] as const).forEach((a) => {
@@ -1124,6 +1208,13 @@ export class DialogManager {
     const width = 600;
     const height = 300;
 
+    const refreshConfirmButton = () => {
+      const okBtn = shell.querySelector<HTMLButtonElement>("button[type='button'].bg-se-primary");
+      if (okBtn) {
+        okBtn.disabled = !dataUrl;
+      }
+    };
+
     const { shell, body } = buildDialogShell(this.i18n, {
       title: this.i18n.t("dialog.graffiti.title"),
       width: DIALOG_WIDTH.graffiti,
@@ -1132,7 +1223,7 @@ export class DialogManager {
         if (dataUrl) commandRegistry.run(this.editor, "graffiti", dataUrl);
         this.close();
       },
-      confirmDisabled: !dataUrl,
+      confirmDisabled: false,
     });
 
     const canvas = h("canvas", { className: "border border-se-border bg-white cursor-crosshair" }) as HTMLCanvasElement;
@@ -1168,6 +1259,7 @@ export class DialogManager {
       if (!drawing) return;
       drawing = false;
       dataUrl = canvas.toDataURL("image/png");
+      refreshConfirmButton();
     };
     canvas.addEventListener("mousedown", startDraw);
     canvas.addEventListener("mousemove", moveDraw);
@@ -1192,6 +1284,7 @@ export class DialogManager {
     const touchEnd = () => {
       drawing = false;
       dataUrl = canvas.toDataURL("image/png");
+      refreshConfirmButton();
     };
     canvas.addEventListener("touchstart", touchStart);
     canvas.addEventListener("touchmove", touchMove);
@@ -1217,6 +1310,7 @@ export class DialogManager {
     clearBtn.addEventListener("click", () => {
       if (ctx) ctx.clearRect(0, 0, width, height);
       dataUrl = "";
+      refreshConfirmButton();
     });
     tools.appendChild(colorInput);
     tools.appendChild(sizeInput);

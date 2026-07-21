@@ -68,6 +68,7 @@ export interface WordCount {
 /** 图片插入选项 */
 export interface ImageOptions {
   width?: number | string;
+  height?: number | string;
   align?: "left" | "center" | "right";
   alt?: string;
 }
