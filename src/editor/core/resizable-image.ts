@@ -38,9 +38,7 @@ function makeToolbarBtn(title: string, svg: string, onClick: () => void): HTMLBu
  * 可调整大小的图片扩展
  *
  * 通过自定义 NodeView 在图片右下角添加拖拽手柄，
- * 拖拽时按比例缩放图片并写入 node.attrs.width。
- * - 拖拽时按住 Shift：自由调整宽度（不保持比例）
- * - 默认：保持宽高比，按宽度缩放
+ * 拖拽时按宽度缩放图片并写入 node.attrs.width 与 height。
  */
 export const ResizableImage = Image.extend({
   addAttributes() {
@@ -225,14 +223,18 @@ export const ResizableImage = Image.extend({
       let dragging = false;
       let startX = 0;
       let startWidth = 0;
+      let startHeight = 0;
+      let hasExplicitHeight = false;
 
       const startResize = (clientX: number) => {
         dragging = true;
         handle.dataset.dragging = "1";
         startX = clientX;
         startWidth = img.offsetWidth;
+        startHeight = img.offsetHeight;
+        hasExplicitHeight = !!node.attrs.height;
       };
-      const moveResize = (clientX: number) => {
+      const moveResize = (clientX: number, shiftKey?: boolean) => {
         if (!dragging) return;
         const delta = clientX - startX;
         let newWidth = Math.max(20, startWidth + delta);
@@ -240,6 +242,10 @@ export const ResizableImage = Image.extend({
         const maxWidth = wrapper.parentElement?.clientWidth ?? 9999;
         if (newWidth > maxWidth) newWidth = maxWidth;
         img.style.width = `${newWidth}px`;
+        if (!shiftKey && !hasExplicitHeight && startWidth && startHeight) {
+          const ratio = startHeight / startWidth;
+          img.style.height = `${Math.round(newWidth * ratio)}px`;
+        }
       };
       const endResize = () => {
         if (!dragging) return;
@@ -248,6 +254,7 @@ export const ResizableImage = Image.extend({
         handle.style.opacity = "0";
         // 写入 attrs
         const finalWidth = Math.round(img.offsetWidth);
+        const finalHeight = Math.round(img.offsetHeight);
         if (typeof getPos === "function") {
           const pos = getPos();
           if (typeof pos === "number") {
@@ -255,10 +262,14 @@ export const ResizableImage = Image.extend({
               .chain()
               .focus()
               .command(({ tr }) => {
-                tr.setNodeMarkup(pos, undefined, {
+                const attrs: Record<string, unknown> = {
                   ...(node.attrs as object),
                   width: finalWidth,
-                });
+                };
+                if (hasExplicitHeight || node.attrs.height) {
+                  attrs.height = finalHeight;
+                }
+                tr.setNodeMarkup(pos, undefined, attrs);
                 return true;
               })
               .run();
@@ -271,7 +282,7 @@ export const ResizableImage = Image.extend({
         e.stopPropagation();
         startResize(e.clientX);
 
-        const onMove = (ev: MouseEvent) => moveResize(ev.clientX);
+        const onMove = (ev: MouseEvent) => moveResize(ev.clientX, ev.shiftKey);
         const onUp = () => {
           endResize();
           document.removeEventListener("mousemove", onMove);
@@ -286,7 +297,7 @@ export const ResizableImage = Image.extend({
         e.stopPropagation();
         startResize(e.touches[0].clientX);
 
-        const onMove = (ev: TouchEvent) => moveResize(ev.touches[0].clientX);
+        const onMove = (ev: TouchEvent) => moveResize(ev.touches[0].clientX, false);
         const onEnd = () => {
           endResize();
           document.removeEventListener("touchmove", onMove);

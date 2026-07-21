@@ -12,6 +12,14 @@ import { compressImage, type CompressOptions } from "../editor/core/image-utils"
 const inputClass =
   "w-full rounded border border-se-border px-2.5 py-1.5 text-[13px] text-se-ink outline-none focus:border-se-primary";
 
+/** 若输入为纯数字像素值，根据原图比例计算另一边像素值 */
+function calcPixelRatio(value: string, base: number, target: number): string | null {
+  if (!/^\d+(\.\d+)?$/.test(value.trim())) return null;
+  const parsed = Number.parseFloat(value.trim());
+  if (Number.isNaN(parsed) || parsed <= 0 || !base || !target) return null;
+  return String(Math.round(parsed * (target / base)));
+}
+
 /** 通用对话框壳 */
 function buildDialogShell(
   i18n: I18n,
@@ -381,7 +389,11 @@ export class DialogManager {
           if (validFiles.length === 1 && !fileInput.multiple) {
             const url = URL.createObjectURL(validFiles[0]);
             previewImg.src = url;
-            previewImg.onload = () => URL.revokeObjectURL(url);
+            previewImg.onload = () => {
+              naturalWidth = previewImg.naturalWidth;
+              naturalHeight = previewImg.naturalHeight;
+              URL.revokeObjectURL(url);
+            };
             previewWrap.classList.remove("hidden");
           }
 
@@ -452,10 +464,10 @@ export class DialogManager {
       const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.image.widthPlaceholder"), onInput: (v) => {
         width = v;
         if (lockRatio && naturalWidth && naturalHeight) {
-          const parsed = Number.parseInt(v, 10);
-          if (!Number.isNaN(parsed) && parsed > 0) {
-            height = String(Math.round(parsed * (naturalHeight / naturalWidth)));
-            renderBody();
+          const ratio = calcPixelRatio(v, naturalWidth, naturalHeight);
+          if (ratio != null) {
+            height = ratio;
+            hInput.value = height;
           }
         }
       } });
@@ -463,10 +475,10 @@ export class DialogManager {
       const hInput = buildInput({ value: height, placeholder: this.i18n.t("dialog.image.heightPlaceholder"), onInput: (v) => {
         height = v;
         if (lockRatio && naturalWidth && naturalHeight) {
-          const parsed = Number.parseInt(v, 10);
-          if (!Number.isNaN(parsed) && parsed > 0) {
-            width = String(Math.round(parsed * (naturalWidth / naturalHeight)));
-            renderBody();
+          const ratio = calcPixelRatio(v, naturalHeight, naturalWidth);
+          if (ratio != null) {
+            width = ratio;
+            wInput.value = width;
           }
         }
       } });

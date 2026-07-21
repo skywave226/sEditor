@@ -190,11 +190,13 @@ export const commandDefinitions: EditorCommand[] = [
       .run();
   }),
   cmd("image", () => false, () => true, (e, p) => {
-    const { src, width, alt } = (p ?? {}) as ImageOptions & { src: string };
+    const { src, width, height, alt, align } = (p ?? {}) as ImageOptions & { src: string };
     if (!src || isDangerousUrl(src, "src")) return;
     const attrs: Record<string, unknown> = { src };
     if (width) attrs.width = width;
+    if (height) attrs.height = height;
     if (alt) attrs.alt = alt;
+    if (align) attrs.align = align;
     e.chain().focus().setImage(attrs as { src: string; alt?: string }).run();
   }),
   cmd("table", () => false, () => true, (e, p) => {
