@@ -20,7 +20,11 @@ function calcPixelRatio(value: string, base: number, target: number): string | n
   return String(Math.round(parsed * (target / base)));
 }
 
-/** 通用对话框壳 */
+/** 根据条件更新对话框"确定"按钮的 disabled 状态 */
+function setOkDisabled(shell: HTMLElement, disabled: boolean) {
+  const okBtn = shell.querySelector<HTMLButtonElement>("button.se-ok-btn");
+  if (okBtn) okBtn.disabled = disabled;
+}/** 通用对话框壳 */
 function buildDialogShell(
   i18n: I18n,
   opts: {
@@ -66,7 +70,7 @@ function buildDialogShell(
   if (opts.onConfirm) {
     const okBtn = h("button", {
       type: "button",
-      className: "rounded bg-se-primary px-3 py-1.5 text-[13px] text-white hover:bg-se-primary-text disabled:opacity-50",
+      className: "se-ok-btn rounded bg-se-primary px-3 py-1.5 text-[13px] text-white hover:bg-se-primary-text disabled:opacity-50",
     });
     okBtn.textContent = opts.confirmText ?? i18n.t("dialog.common.confirm");
     okBtn.disabled = !!opts.confirmDisabled;
@@ -223,7 +227,11 @@ export class DialogManager {
       confirmDisabled: !href.trim(),
     });
 
-    const hrefInput = buildInput({ value: href, placeholder: this.i18n.t("dialog.link.urlPlaceholder"), autoFocus: true, onInput: (v) => { href = v; } });
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !href.trim());
+    };
+
+    const hrefInput = buildInput({ value: href, placeholder: this.i18n.t("dialog.link.urlPlaceholder"), autoFocus: true, onInput: (v) => { href = v; refreshConfirmButton(); } });
     body.appendChild(buildField(this.i18n.t("dialog.link.href"), hrefInput));
     const textInput = buildInput({ value: text, placeholder: this.i18n.t("dialog.link.textPlaceholder"), onInput: (v) => { text = v; } });
     body.appendChild(buildField(this.i18n.t("dialog.link.text"), textInput));
@@ -262,10 +270,7 @@ export class DialogManager {
     let uploading = false;
 
     const refreshConfirmButton = () => {
-      const okBtn = shell.querySelector<HTMLButtonElement>("button[type='button'].bg-se-primary");
-      if (okBtn) {
-        okBtn.disabled = !src.trim();
-      }
+      setOkDisabled(shell, !src.trim());
     };
 
     const { shell, body } = buildDialogShell(this.i18n, {
@@ -705,6 +710,10 @@ export class DialogManager {
       confirmDisabled: !src.trim(),
     });
 
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !src.trim());
+    };
+
     const renderBody = () => {
       body.innerHTML = "";
       if (this.config?.fileUpload) {
@@ -744,6 +753,7 @@ export class DialogManager {
             src = url;
             tab = "url";
             uploading = false;
+            refreshConfirmButton();
             renderBody();
           } catch (err) {
             reportError(this.config, "video-upload", err);
@@ -756,7 +766,7 @@ export class DialogManager {
         body.appendChild(buildField(this.i18n.t("dialog.video.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.video.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.video.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
         body.appendChild(buildField(this.i18n.t("dialog.video.urlLabel"), urlInput));
       }
       const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.video.widthPlaceholder"), onInput: (v) => { width = v; } });
@@ -783,6 +793,10 @@ export class DialogManager {
       },
       confirmDisabled: !src.trim(),
     });
+
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !src.trim());
+    };
 
     const renderBody = () => {
       body.innerHTML = "";
@@ -823,6 +837,7 @@ export class DialogManager {
             src = url;
             tab = "url";
             uploading = false;
+            refreshConfirmButton();
             renderBody();
           } catch (err) {
             reportError(this.config, "audio-upload", err);
@@ -835,7 +850,7 @@ export class DialogManager {
         body.appendChild(buildField(this.i18n.t("dialog.audio.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.audio.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.audio.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
         body.appendChild(buildField(this.i18n.t("dialog.audio.urlLabel"), urlInput));
       }
     };
@@ -1054,7 +1069,11 @@ export class DialogManager {
       confirmDisabled: !src.trim(),
     });
 
-    const srcInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.iframe.srcPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !src.trim());
+    };
+
+    const srcInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.iframe.srcPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
     body.appendChild(buildField(this.i18n.t("dialog.iframe.src"), srcInput));
     const wInput = buildInput({ value: width, placeholder: this.i18n.t("dialog.iframe.widthPlaceholder"), onInput: (v) => { width = v; } });
     body.appendChild(buildField(this.i18n.t("dialog.iframe.width"), wInput));
@@ -1081,7 +1100,11 @@ export class DialogManager {
       confirmDisabled: !id.trim(),
     });
 
-    const idInput = buildInput({ value: id, placeholder: this.i18n.t("dialog.anchor.idPlaceholder"), autoFocus: true, onInput: (v) => { id = v; } });
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !id.trim());
+    };
+
+    const idInput = buildInput({ value: id, placeholder: this.i18n.t("dialog.anchor.idPlaceholder"), autoFocus: true, onInput: (v) => { id = v; refreshConfirmButton(); } });
     body.appendChild(buildField(this.i18n.t("dialog.anchor.id"), idInput));
     const nameInput = buildInput({ value: name, placeholder: this.i18n.t("dialog.anchor.namePlaceholder"), onInput: (v) => { name = v; } });
     body.appendChild(buildField(this.i18n.t("dialog.anchor.name"), nameInput));
@@ -1112,6 +1135,10 @@ export class DialogManager {
       },
       confirmDisabled: !src.trim(),
     });
+
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !src.trim());
+    };
 
     const renderBody = () => {
       body.innerHTML = "";
@@ -1152,6 +1179,7 @@ export class DialogManager {
             src = url;
             tab = "url";
             uploading = false;
+            refreshConfirmButton();
             renderBody();
           } catch (err) {
             reportError(this.config, "music-upload", err);
@@ -1164,7 +1192,7 @@ export class DialogManager {
         body.appendChild(buildField(this.i18n.t("dialog.music.fileLabel"), fileInput));
         if (uploading) body.appendChild(statusEl);
       } else {
-        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.music.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+        const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.music.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
         body.appendChild(buildField(this.i18n.t("dialog.music.urlLabel"), urlInput));
         const nameInput = buildInput({ value: name, placeholder: this.i18n.t("dialog.music.namePlaceholder"), onInput: (v) => { name = v; } });
         body.appendChild(buildField(this.i18n.t("dialog.music.name"), nameInput));
@@ -1195,6 +1223,10 @@ export class DialogManager {
       confirmDisabled: !values.trim(),
     });
 
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !values.trim());
+    };
+
     const typeSelect = h("select", { className: inputClass }) as HTMLSelectElement;
     (["bar", "line", "pie"] as const).forEach((t) => {
       const opt = h("option") as HTMLOptionElement;
@@ -1207,7 +1239,7 @@ export class DialogManager {
 
     body.appendChild(buildField(this.i18n.t("dialog.chart.titleLabel"), buildInput({ value: title, placeholder: this.i18n.t("dialog.chart.titlePlaceholder"), onInput: (v) => { title = v; } })));
     body.appendChild(buildField(this.i18n.t("dialog.chart.labels"), buildInput({ value: labels, placeholder: this.i18n.t("dialog.chart.labelsPlaceholder"), onInput: (v) => { labels = v; } })));
-    body.appendChild(buildField(this.i18n.t("dialog.chart.values"), buildInput({ value: values, placeholder: this.i18n.t("dialog.chart.valuesPlaceholder"), autoFocus: true, onInput: (v) => { values = v; } })));
+    body.appendChild(buildField(this.i18n.t("dialog.chart.values"), buildInput({ value: values, placeholder: this.i18n.t("dialog.chart.valuesPlaceholder"), autoFocus: true, onInput: (v) => { values = v; refreshConfirmButton(); } })));
     body.appendChild(buildField(this.i18n.t("dialog.chart.colors"), buildInput({ value: colors, placeholder: this.i18n.t("dialog.chart.colorsPlaceholder"), onInput: (v) => { colors = v; } })));
 
     return shell;
@@ -1220,13 +1252,6 @@ export class DialogManager {
     const width = 600;
     const height = 300;
 
-    const refreshConfirmButton = () => {
-      const okBtn = shell.querySelector<HTMLButtonElement>("button[type='button'].bg-se-primary");
-      if (okBtn) {
-        okBtn.disabled = !dataUrl;
-      }
-    };
-
     const { shell, body } = buildDialogShell(this.i18n, {
       title: this.i18n.t("dialog.graffiti.title"),
       width: DIALOG_WIDTH.graffiti,
@@ -1237,6 +1262,10 @@ export class DialogManager {
       },
       confirmDisabled: false,
     });
+
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !dataUrl);
+    };
 
     const canvas = h("canvas", { className: "border border-se-border bg-white cursor-crosshair" }) as HTMLCanvasElement;
     canvas.width = width;
@@ -1349,7 +1378,11 @@ export class DialogManager {
       confirmDisabled: !src.trim(),
     });
 
-    const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.remoteImage.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; } });
+    const refreshConfirmButton = () => {
+      setOkDisabled(shell, !src.trim());
+    };
+
+    const urlInput = buildInput({ value: src, placeholder: this.i18n.t("dialog.remoteImage.urlPlaceholder"), autoFocus: true, onInput: (v) => { src = v; refreshConfirmButton(); } });
     body.appendChild(buildField(this.i18n.t("dialog.remoteImage.urlLabel"), urlInput));
     const tip = h("div", { className: "mt-2 text-[12px] text-se-faint" });
     tip.textContent = this.i18n.t("dialog.remoteImage.tip");
